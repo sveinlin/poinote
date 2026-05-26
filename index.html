@@ -58,8 +58,8 @@
 const { useState, useEffect, useCallback, useRef, useMemo } = React;
 
 // ── Version ────────────────────────────────────────────────────────────────
-const APP_VERSION = '1.9.0';
-const APP_BUILD_DATE = '2026-04-26';
+const APP_VERSION = '2.0.0';
+const APP_BUILD_DATE = '2026-05-26';
 
 // ── Constants ──────────────────────────────────────────────────────────────
 const DEFAULT_CATEGORIES = [
@@ -95,12 +95,8 @@ const CategoriesCtx = React.createContext({ cats: DEFAULT_CATEGORIES, getCat: (i
 const PURCHASE_KEYWORDS = ['買', '購買', 'buy', 'purchase', '訂購', '消費', '購', 'shop', '付'];
 
 const DEFAULT_JOURNAL_TYPES = [
-  { id: '工作', label: '工作成就', emoji: '💪', color: 'bg-[#FEF3DC] text-blue-700',    border: 'border-blue-300',   hex: '#54A0FF' },
-  { id: '生活', label: '生活記錄', emoji: '❤️', color: 'bg-pink-100 text-pink-700',    border: 'border-pink-300',   hex: '#FD79A8' },
+  { id: '生活', label: '生活紀錄', emoji: '❤️', color: 'bg-pink-100 text-pink-700',    border: 'border-pink-300',   hex: '#FD79A8' },
   { id: '靈感', label: '靈感想法', emoji: '💡', color: 'bg-yellow-100 text-yellow-700', border: 'border-yellow-300', hex: '#FFC312' },
-  { id: '事件', label: '特別事件', emoji: '🎉', color: 'bg-purple-100 text-purple-700', border: 'border-purple-300', hex: '#A29BFE' },
-  { id: '提醒', label: '重要提醒', emoji: '⚠️', color: 'bg-red-100 text-red-700',      border: 'border-red-300',    hex: '#FF6B6B' },
-  { id: '健康', label: '健康紀錄', emoji: '🌿', color: 'bg-emerald-100 text-emerald-700', border: 'border-emerald-300', hex: '#1DD1A1' },
 ];
 
 function getJournalType(id, types) {
@@ -152,71 +148,9 @@ const DEFAULT_FIXED_ITEMS = [];
 // ── Default Sample Data ────────────────────────────────────────────────────
 const DEFAULT_LISTS = [
   { id: 'list-1', name: '我的任務' },
-  { id: 'list-2', name: '工作' },
-  { id: 'list-3', name: '購物清單' },
 ];
 
-const DEFAULT_TASKS = [
-  {
-    id: 't1', listId: 'list-1', title: '準備週報告',
-    notes: '整理本週數據與成果', dueDate: '2026-04-25',
-    completed: false, pinned: true,
-    isPurchase: false, amount: null, category: null, merchant: null,
-    subtasks: [
-      { id: 's1', title: '收集數據', completed: true },
-      { id: 's2', title: '撰寫摘要', completed: false },
-    ],
-  },
-  {
-    id: 't2', listId: 'list-1', title: '買咖啡豆',
-    notes: '中深烘培，500g', dueDate: '2026-04-22',
-    completed: false, pinned: false,
-    isPurchase: true, amount: 320, category: '飲食', merchant: '星巴克',
-    subtasks: [],
-  },
-  {
-    id: 't3', listId: 'list-2', title: '回覆客戶 email',
-    notes: '', dueDate: '',
-    completed: false, pinned: false,
-    isPurchase: false, amount: null, category: null, merchant: null,
-    subtasks: [],
-  },
-  {
-    id: 't4', listId: 'list-3', title: '購買生鮮蔬菜',
-    notes: '番茄、菠菜、青椒', dueDate: '2026-04-21',
-    completed: true, pinned: false,
-    isPurchase: true, amount: 180, category: '飲食', merchant: '全聯',
-    subtasks: [],
-  },
-  {
-    id: 't5', listId: 'list-3', title: '訂購瑜珈墊',
-    notes: '厚度 6mm，環保材質', dueDate: '2026-04-23',
-    completed: true, pinned: false,
-    isPurchase: true, amount: 850, category: '購物', merchant: 'momo購物',
-    subtasks: [],
-  },
-  {
-    id: 't6', listId: 'list-1', title: '搭 MRT 去信義區',
-    notes: '', dueDate: '2026-04-20',
-    completed: true, pinned: false,
-    isPurchase: true, amount: 45, category: '交通', merchant: '台北捷運',
-    subtasks: [],
-  },
-  {
-    id: 't7', listId: 'list-2', title: '繳房租',
-    notes: '4月份租金', dueDate: '2026-04-05',
-    completed: true, pinned: false,
-    isPurchase: true, amount: 18000, category: '居家', merchant: '房東',
-    subtasks: [],
-  },
-  {
-    id: 't8', listId: 'list-1', title: '買 Netflix 訂閱',
-    notes: '家庭方案', dueDate: '2026-04-15',
-    completed: true, pinned: false,
-    isPurchase: true, amount: 390, category: '娛樂', merchant: 'Netflix',
-    subtasks: [],
-  },
-];
+const DEFAULT_TASKS = [];
 
 // ── LocalStorage helpers ───────────────────────────────────────────────────
 function loadState(key, fallback) {
@@ -462,6 +396,13 @@ function App() {
   const [filterDate,  setFilterDate]  = useState(() => new Date().toISOString().slice(0,10));
   const [acctView, setAcctView] = useState('records'); // 'records' | 'stats'
   const [splashDone, setSplashDone] = useState(false);
+  const pageSwipeX = useRef(null);
+  const PAGE_TABS = ['tasks', 'accounting', 'journal'];
+  const switchPageTab = (dir) => {
+    const idx = PAGE_TABS.indexOf(tab);
+    const next = idx + dir;
+    if (next >= 0 && next < PAGE_TABS.length) setTab(PAGE_TABS[next]);
+  };
 
   // Navigate date backward/forward by one period
   const navigateDate = useCallback((dir) => {
@@ -511,6 +452,10 @@ function App() {
 
   const deleteTask = useCallback((id) => {
     setTasks(prev => prev.filter(t => t.id !== id));
+  }, []);
+
+  const deleteAllCompleted = useCallback(() => {
+    setTasks(prev => prev.filter(t => !t.completed));
   }, []);
 
   const toggleComplete = useCallback((id) => {
@@ -799,20 +744,6 @@ function App() {
             <span style={{fontFamily:'Georgia,serif', fontWeight:700, fontSize:18, color:'#1C1C1E', letterSpacing:0.5}}>inote</span>
             <span style={{fontSize:12, color:'#E8940A', letterSpacing:4, marginLeft:4}}>計點事</span>
           </h1>
-          {tab === 'tasks' && (
-            <button onClick={() => setShowQuickAdd(true)}
-              className="w-9 h-9 rounded-full flex items-center justify-center shadow-md active:scale-95 transition-all"
-              style={{background:'linear-gradient(145deg,#5A5A5A,#2E2E2E)',boxShadow:'0 2px 8px rgba(0,0,0,0.22)'}}>
-              <span className="text-white text-xl leading-none">+</span>
-            </button>
-          )}
-          {tab === 'journal' && (
-            <button onClick={() => setJournalModal({ mode: 'add', journal: null })}
-              className="w-9 h-9 rounded-full flex items-center justify-center shadow-md active:scale-95 transition-all"
-              style={{background:'linear-gradient(145deg,#7AB8DC,#5B8DB8)',boxShadow:'0 2px 8px rgba(91,141,184,0.35)'}}>
-              <span className="text-white text-xl leading-none">+</span>
-            </button>
-          )}
           {tab === 'accounting' && (
             <button onClick={() => setAcctView(v => v === 'stats' ? 'records' : 'stats')}
               className={`w-9 h-9 flex items-center justify-center rounded-full transition-all ${acctView==='stats' ? 'bg-[#E8940A] text-white shadow' : 'text-gray-400 bg-gray-100 hover:bg-gray-200'}`}>
@@ -824,7 +755,14 @@ function App() {
       </header>
 
       {/* Main content */}
-      <main className="flex-1 overflow-y-auto pb-24 relative" style={{zIndex:10}}>
+      <main className="flex-1 overflow-y-auto pb-24 relative" style={{zIndex:10}}
+        onTouchStart={e => { pageSwipeX.current = e.touches[0].clientX; }}
+        onTouchEnd={e => {
+          if (pageSwipeX.current === null) return;
+          const dx = e.changedTouches[0].clientX - pageSwipeX.current;
+          pageSwipeX.current = null;
+          if (Math.abs(dx) > 70) switchPageTab(dx < 0 ? 1 : -1);
+        }}>
         {tab === 'tasks' && (
           <div className="sticky top-0 z-20 px-4 pt-2 pb-2 flex gap-2 overflow-x-auto hide-scrollbar"
             style={{background:'rgba(240,250,244,0.92)', backdropFilter:'blur(8px)', borderBottom:'1px solid rgba(232,200,122,0.18)'}}>
@@ -859,6 +797,7 @@ function App() {
             onToggleComplete={handleCompleteWithPrompt} onTogglePin={togglePin} onDelete={deleteTask}
             onEdit={(task) => setTaskModal({ mode: 'edit', task })} onReorder={reorderTask}
             onAddTask={() => setTaskModal({ mode: 'add', task: null })} onMoveToJournal={moveTaskToJournal}
+            onDeleteCompleted={deleteAllCompleted}
           />
         )}
         {tab === 'journal' && (
@@ -930,13 +869,38 @@ function App() {
         </button>
       </nav>
 
-      {/* Accounting: fixed "+ 新紀錄" button above bottom nav */}
+      {/* Tasks: fixed circular "+" button above bottom nav */}
+      {tab === 'tasks' && (
+        <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md z-30 pointer-events-none">
+          <div className="flex justify-center px-6 pb-24 pt-2 pointer-events-auto">
+            <button onClick={() => setShowQuickAdd(true)}
+              className="w-11 h-11 rounded-full flex items-center justify-center shadow-lg active:scale-95 transition-all"
+              style={{background:'linear-gradient(145deg,#5A5A5A,#2E2E2E)',boxShadow:'0 4px 14px rgba(0,0,0,0.28)'}}>
+              <span className="text-white text-2xl leading-none font-light">+</span>
+            </button>
+          </div>
+        </div>
+      )}
+      {/* Journal: fixed circular "+" button above bottom nav */}
+      {tab === 'journal' && (
+        <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md z-30 pointer-events-none">
+          <div className="flex justify-center px-6 pb-24 pt-2 pointer-events-auto">
+            <button onClick={() => setJournalModal({ mode: 'add', journal: null })}
+              className="w-11 h-11 rounded-full flex items-center justify-center shadow-lg active:scale-95 transition-all"
+              style={{background:'linear-gradient(145deg,#7AB8DC,#5B8DB8)',boxShadow:'0 4px 14px rgba(91,141,184,0.38)'}}>
+              <span className="text-white text-2xl leading-none font-light">+</span>
+            </button>
+          </div>
+        </div>
+      )}
+      {/* Accounting: fixed circular "+" button above bottom nav */}
       {tab === 'accounting' && acctView !== 'stats' && (
         <div className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md z-30 pointer-events-none">
-          <div className="px-6 pb-24 pt-2 pointer-events-auto">
-            <button onClick={() => setRecordModal({ mode: 'add', record: null })}
-              className="w-full py-3.5 bg-white rounded-2xl shadow border border-[#E8C87A]/50 text-[#E8940A] font-semibold text-sm flex items-center justify-center gap-2 active:scale-95 transition-all hover:shadow-md">
-              <span className="text-lg font-light leading-none">+</span> 新紀錄
+          <div className="flex justify-center px-6 pb-24 pt-2 pointer-events-auto">
+            <button onClick={() => setRecordModal({ mode: 'add', record: { date: filterDate } })}
+              className="w-11 h-11 rounded-full flex items-center justify-center shadow-lg active:scale-95 transition-all"
+              style={{background:'linear-gradient(145deg,#F0A020,#E8940A)',boxShadow:'0 4px 14px rgba(232,148,10,0.38)'}}>
+              <span className="text-white text-2xl leading-none font-light">+</span>
             </button>
           </div>
         </div>
@@ -987,6 +951,14 @@ function App() {
             setRecordModal(null);
           } : null}
           onClose={() => setRecordModal(null)}
+          onGoToSettings={() => {
+            setRecordModal(null);
+            setTab('settings');
+            setTimeout(() => {
+              const el = document.getElementById('categories-section');
+              if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }, 150);
+          }}
         />
       )}
       {/* Post-record prompt: 新增記帳後提示是否加入待辦 */}
@@ -1010,6 +982,14 @@ function App() {
           }}
           onDelete={journalModal.mode === 'edit' ? () => { deleteJournal(journalModal.journal.id); setJournalModal(null); } : null}
           onClose={() => setJournalModal(null)}
+          onGoToSettings={() => {
+            setJournalModal(null);
+            setTab('settings');
+            setTimeout(() => {
+              const el = document.getElementById('journal-types-section');
+              if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }, 150);
+          }}
         />
       )}
       {/* Quick add bar */}
@@ -1062,8 +1042,10 @@ function QuickAddBar({ onSave, onOpenRecord, onDetail, onClose }) {
     return Math.max(...nums.map(Number));
   };
 
-  const hasNumber = /\d/.test(title);
-  const detectedAmount = hasNumber ? extractAmount(title) : null;
+  // 移除時間（12:30）和日期（5/26）格式後再檢查是否有數字
+  const strippedForCheck = title.replace(/\d{1,2}:\d{2}/g, '').replace(/\d{1,4}[\/]\d{1,2}/g, '');
+  const hasNumber = /\d/.test(strippedForCheck);
+  const detectedAmount = hasNumber ? extractAmount(strippedForCheck) : null;
 
   // 儲存任務（不記帳）
   const doSaveTask = () => {
@@ -1096,9 +1078,9 @@ function QuickAddBar({ onSave, onOpenRecord, onDetail, onClose }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center">
+    <div className="fixed inset-0 z-50 flex flex-col justify-end">
       <div className="absolute inset-0 bg-black/20" onClick={onClose}/>
-      <div className="relative bg-white w-full max-w-md rounded-t-2xl shadow-2xl">
+      <div className="relative bg-white w-full max-w-md mx-auto rounded-t-2xl shadow-2xl">
         {/* Handle */}
         <div className="flex justify-center pt-3 pb-1">
           <div className="w-10 h-1 bg-gray-200 rounded-full"/>
@@ -1107,12 +1089,12 @@ function QuickAddBar({ onSave, onOpenRecord, onDetail, onClose }) {
         <div className="px-5 pt-3 pb-3">
           <input
             ref={inputRef}
+            autoFocus
             type="text"
             placeholder="新工作"
             value={title}
             onChange={e => { setTitle(e.target.value); setAcctPrompt(false); }}
             onKeyDown={e => {
-              // Enter 只確認 IME，不送出
               if (e.key === 'Enter') e.preventDefault();
             }}
             className="w-full text-base outline-none placeholder-gray-300 border-b border-gray-100 pb-2.5"
@@ -1133,14 +1115,12 @@ function QuickAddBar({ onSave, onOpenRecord, onDetail, onClose }) {
         )}
         {/* Bottom action row */}
         <div className="px-4 pb-8 flex items-center gap-1">
-          {/* Detail - opens full TaskModal */}
           <button onClick={() => onDetail({ title, dueDate, pinned })}
             className="p-2.5 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors" title="詳細設定">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 6h16M4 10h16M4 14h16M4 18h16"/>
             </svg>
           </button>
-          {/* Due date */}
           <label className="relative p-2.5 rounded-full cursor-pointer transition-colors hover:bg-gray-100" title="截止日期">
             <svg className={`w-5 h-5 ${dueDate ? 'text-[#E8940A]' : 'text-gray-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
@@ -1148,7 +1128,6 @@ function QuickAddBar({ onSave, onOpenRecord, onDetail, onClose }) {
             <input type="date" value={dueDate} onChange={e => setDueDate(e.target.value)}
               className="absolute inset-0 opacity-0 cursor-pointer" />
           </label>
-          {/* Pin */}
           <button onClick={() => setPinned(v => !v)}
             className={`p-2.5 rounded-full transition-colors hover:bg-gray-100 ${pinned ? 'text-amber-500' : 'text-gray-400'}`} title="釘選">
             <svg className="w-5 h-5" fill={pinned ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24">
@@ -1168,8 +1147,9 @@ function QuickAddBar({ onSave, onOpenRecord, onDetail, onClose }) {
 }
 
 // ── TasksView ──────────────────────────────────────────────────────────────
-function TasksView({ pinnedTasks, activeTasks, completedTasks, onToggleComplete, onTogglePin, onEdit, onReorder, onAddTask, onMoveToJournal }) {
+function TasksView({ pinnedTasks, activeTasks, completedTasks, onToggleComplete, onTogglePin, onEdit, onReorder, onAddTask, onMoveToJournal, onDeleteCompleted }) {
   const [showCompleted, setShowCompleted] = useState(false);
+  const [confirmClear, setConfirmClear] = useState(false);
   // drag: { fromIdx, startY, currentY, itemH, startScrollTop, scrollDelta } | null
   const [drag, setDrag] = useState(null);
   const dragRef = useRef(null);
@@ -1314,11 +1294,23 @@ function TasksView({ pinnedTasks, activeTasks, completedTasks, onToggleComplete,
       {/* Completed section */}
       {completedTasks.length > 0 && (
         <section className="mt-4 px-4">
-          <button onClick={() => setShowCompleted(v=>!v)}
-            className="flex items-center gap-2 text-sm text-gray-500 font-medium mb-2">
-            <svg className={`w-4 h-4 transition-transform ${showCompleted?'rotate-90':''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7"/></svg>
-            已完成 ({completedTasks.length})
-          </button>
+          <div className="flex items-center justify-between mb-2">
+            <button onClick={() => setShowCompleted(v=>!v)}
+              className="flex items-center gap-2 text-sm text-gray-500 font-medium">
+              <svg className={`w-4 h-4 transition-transform ${showCompleted?'rotate-90':''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7"/></svg>
+              已完成 ({completedTasks.length})
+            </button>
+            {!confirmClear
+              ? <button onClick={() => setConfirmClear(true)} className="text-xs text-gray-400 hover:text-red-400 transition-colors">清除全部</button>
+              : <div className="flex items-center gap-2">
+                  <span className="text-xs text-gray-500">確定清除？</span>
+                  <button onClick={() => { onDeleteCompleted(); setConfirmClear(false); }}
+                    className="text-xs text-white bg-red-400 px-2 py-0.5 rounded-full font-medium">確定</button>
+                  <button onClick={() => setConfirmClear(false)}
+                    className="text-xs text-gray-400">取消</button>
+                </div>
+            }
+          </div>
           {showCompleted && (
             <div className="space-y-0">
               {completedTasks.map(task => (
@@ -1394,6 +1386,17 @@ function TaskItem({ task, pinned, onToggleComplete, onTogglePin, onEdit,
             <button onClick={() => onMoveToJournal(task)}
               className="p-1 text-gray-300 hover:text-rose-400 transition-colors" title="記錄到重要日誌">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/></svg>
+            </button>
+          )}
+          {onDragStart && (
+            <button
+              className="p-1.5 text-gray-300 cursor-grab touch-none"
+              onTouchStart={e => { e.stopPropagation(); startDrag(e.touches[0].clientY); }}
+              onMouseDown={e => { e.preventDefault(); startDrag(e.clientY); }}
+              title="拖移排序">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8h16M4 16h16"/>
+              </svg>
             </button>
           )}
           <button onClick={() => onTogglePin(task.id)}
@@ -1674,131 +1677,207 @@ function DonutChart({ slices, total, getCat, activeCat, onSliceClick }) {
 // ── FixedItemsModal ────────────────────────────────────────────────────────
 function FixedItemsModal({ items, categories, onSave, onClose }) {
   const [tab, setTab] = useState('income');
+  const [editingId, setEditingId] = useState(null); // null = add mode
   const [name, setName] = useState('');
-  const [amount, setAmount] = useState('');
+  const [amtExpr, setAmtExpr] = useState('');
+  const [prevVal, setPrevVal] = useState(null);
+  const [pendingOp, setPendingOp] = useState(null);
   const [category, setCategory] = useState(categories[0]?.id || '');
-  const [editingId, setEditingId] = useState(null);
-  const [editName, setEditName] = useState('');
-  const [editAmount, setEditAmount] = useState('');
-  const [editCat, setEditCat] = useState('');
-  const [calcTarget, setCalcTarget] = useState(null); // 'add' | 'edit'
-  const isTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
 
   const shown = items.filter(i => i.type === tab);
   const isIncome = tab === 'income';
   const accent = isIncome ? '#34C759' : '#FF3B30';
-  const inputCls = 'border border-gray-200 rounded-xl px-3 py-2.5 text-sm outline-none focus:ring-2 focus:ring-[#E8940A]/30 bg-white';
 
-  const addItem = () => {
-    if (!name.trim() || !parseFloat(amount)) return;
-    onSave([...items, { id: uid(), name: name.trim(), amount: parseFloat(amount), type: tab, category: tab==='expense' ? (category||null) : null }]);
-    setName(''); setAmount('');
+  const computedAmt = () => {
+    const cur = parseFloat(amtExpr) || 0;
+    if (pendingOp !== null && prevVal !== null)
+      return pendingOp === '+' ? prevVal + cur : Math.max(0, prevVal - cur);
+    return cur;
   };
-  const startEdit = (item) => { setEditingId(item.id); setEditName(item.name); setEditAmount(String(item.amount)); setEditCat(item.category || categories[0]?.id || ''); };
-  const saveEdit = () => {
-    if (!editName.trim() || !parseFloat(editAmount)) return;
-    onSave(items.map(i => i.id!==editingId ? i : { ...i, name: editName.trim(), amount: parseFloat(editAmount), category: i.type==='expense'?(editCat||null):null }));
-    setEditingId(null);
+  const amtNum = computedAmt();
+  const displayStr = '$' + (amtNum > 0 ? amtNum.toLocaleString() : (amtExpr || '0'));
+
+  const pressKey = (key) => {
+    if (key === '⌫') {
+      if (amtExpr.length > 0) { setAmtExpr(e => e.slice(0, -1)); return; }
+      if (pendingOp !== null) { setAmtExpr(String(prevVal ?? '')); setPrevVal(null); setPendingOp(null); }
+      return;
+    }
+    if (key === '+' || key === '−') {
+      const cur = parseFloat(amtExpr) || 0;
+      const base = (pendingOp !== null && prevVal !== null)
+        ? (pendingOp === '+' ? prevVal + cur : Math.max(0, prevVal - cur))
+        : cur;
+      setPrevVal(base); setPendingOp(key); setAmtExpr('');
+      return;
+    }
+    if (key === '.') { setAmtExpr(e => e.includes('.') ? e : e + '.'); return; }
+    if (amtExpr.length >= 10) return;
+    setAmtExpr(e => e === '0' ? key : e + key);
   };
-  const deleteItem = (id) => onSave(items.filter(i => i.id!==id));
+
+  const startEdit = (item) => {
+    setEditingId(item.id);
+    setName(item.name);
+    resetAmt(); setAmtExpr(String(item.amount));
+    setCategory(item.category || categories[0]?.id || '');
+  };
+  const resetAmt = () => { setAmtExpr(''); setPrevVal(null); setPendingOp(null); };
+  const cancelEdit = () => { setEditingId(null); setName(''); resetAmt(); setCategory(categories[0]?.id || ''); };
+
+  const handleSave = () => {
+    if (!name.trim() || amtNum <= 0) return;
+    if (editingId) {
+      onSave(items.map(i => i.id !== editingId ? i : {
+        ...i, name: name.trim(), amount: amtNum,
+        category: i.type === 'expense' ? (category || null) : null
+      }));
+      setEditingId(null);
+    } else {
+      onSave([...items, { id: uid(), name: name.trim(), amount: amtNum, type: tab, category: tab === 'expense' ? (category || null) : null }]);
+    }
+    setName(''); resetAmt(); setCategory(categories[0]?.id || '');
+  };
+  const deleteItem = (id) => onSave(items.filter(i => i.id !== id));
+
+  const kpBtn = (label, type) => {
+    const base = 'flex items-center justify-center h-[56px] rounded-2xl text-xl font-semibold active:opacity-60 transition-opacity select-none cursor-pointer';
+    if (type === 'op') return (
+      <button key={label} onClick={() => pressKey(label)} className={`${base} text-[#FF9500] text-2xl`}>{label}</button>
+    );
+    if (type === 'del') return (
+      <button key="del" onClick={() => pressKey('⌫')} className={`${base} text-[#FF9500]`}>
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M21 4H8l-7 8 7 8h13a2 2 0 002-2V6a2 2 0 00-2-2z"/><line x1="15" y1="9" x2="19" y2="13"/><line x1="19" y1="9" x2="15" y2="13"/>
+        </svg>
+      </button>
+    );
+    if (type === 'confirm') return (
+      <button key="confirm" onClick={handleSave} className={`${base} text-[#FF9500]`}>
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M5 12l5 5L19 7"/>
+        </svg>
+      </button>
+    );
+    if (type === 'empty') return <div key={label} className={base}/>;
+    return <button key={label} onClick={() => pressKey(label)} className={`${base} text-white`}>{label}</button>;
+  };
 
   return (
     <div className="fixed inset-0 bg-black/40 z-50 flex items-end" onClick={onClose}>
-      <div className="w-full bg-white rounded-t-3xl max-h-[88vh] flex flex-col" onClick={e => e.stopPropagation()}>
-        <div className="flex justify-center pt-3"><div className="w-10 h-1 bg-gray-200 rounded-full"/></div>
-        <div className="flex items-center justify-between px-5 pt-3 pb-2">
-          <div className="text-base font-bold text-gray-800">每月固定項目</div>
-          <button onClick={onClose} className="p-1.5 text-gray-400 hover:text-gray-600">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
-          </button>
-        </div>
-        <div className="mx-4 mb-3 flex bg-gray-100 rounded-xl p-1">
-          {[['income','固定收入','#34C759'],['expense','固定支出','#FF3B30']].map(([tabId,label,clr]) => (
-            <button key={tabId} onClick={() => setTab(tabId)}
-              className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all ${tab===tabId?'bg-white shadow':'text-gray-400'}`}
-              style={tab===tabId?{color:clr}:{}}>
-              {label}
+      <div className="relative flex flex-col w-full max-w-md mx-auto rounded-t-3xl overflow-hidden shadow-2xl"
+        style={{maxHeight:'92vh', background:'#FAF6F1'}} onClick={e => e.stopPropagation()}>
+
+        {/* Scrollable top */}
+        <div className="overflow-y-auto flex-1 min-h-0">
+          {/* Handle + header */}
+          <div className="flex justify-center pt-3 pb-0"><div className="w-10 h-1 bg-gray-300 rounded-full"/></div>
+          <div className="flex items-center justify-between px-4 pt-3 pb-2">
+            <div className="text-base font-bold text-gray-800">
+              {editingId ? '編輯固定項目' : '每月固定項目'}
+            </div>
+            <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full bg-white/80 text-gray-500 shadow-sm">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12"/></svg>
             </button>
-          ))}
-        </div>
-        <div className="flex-1 overflow-y-auto px-4 space-y-2 pb-2">
-          {shown.length === 0 && <div className="text-center py-10 text-gray-300 text-sm">{isIncome?'尚未設定收入項目':'尚未設定支出項目'}</div>}
-          {shown.map(item => editingId===item.id ? (
-            <div key={item.id} className="bg-gray-50 rounded-2xl p-3 space-y-2">
-              <div className="flex gap-2">
-                <input value={editName} onChange={e=>setEditName(e.target.value)} placeholder="名稱" className={`flex-1 ${inputCls}`}/>
-                <div className="flex items-center border border-gray-200 rounded-xl bg-white overflow-hidden w-32">
-                  <input value={editAmount} onChange={e=>{ const v=e.target.value; if(v!==''&&!/^\d*\.?\d*$/.test(v)) return; setEditAmount(v); }}
-                    placeholder="金額" type="text" inputMode={isTouch?'none':'decimal'}
-                    onFocus={()=>{ if(isTouch) setCalcTarget('edit'); }}
-                    className="flex-1 px-2 py-2.5 text-sm outline-none bg-transparent w-0"/>
-                  <button onClick={()=>setCalcTarget('edit')} className="px-2 text-gray-300 hover:text-[#E8940A]">
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
-                  </button>
-                </div>
-              </div>
-              {!isIncome && (
-                <select value={editCat} onChange={e=>setEditCat(e.target.value)} className={`w-full ${inputCls}`}>
-                  <option value="">不指定分類</option>
-                  {categories.map(c => <option key={c.id} value={c.id}>{c.emoji} {c.label}</option>)}
-                </select>
-              )}
-              <div className="flex gap-2">
-                <button onClick={saveEdit} className="flex-1 py-2 text-white text-sm font-semibold rounded-xl" style={{background:accent}}>儲存</button>
-                <button onClick={()=>setEditingId(null)} className="px-5 py-2 bg-gray-100 text-gray-600 text-sm rounded-xl">取消</button>
-              </div>
+          </div>
+
+          {/* Tab toggle */}
+          {!editingId && (
+            <div className="mx-4 mb-2 flex bg-white rounded-xl p-0.5 shadow-sm">
+              {[['income','固定收入','#34C759'],['expense','固定支出','#FF3B30']].map(([tabId,label,clr]) => (
+                <button key={tabId} onClick={() => { setTab(tabId); resetAmt(); }}
+                  className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all ${tab===tabId?'shadow':''}`}
+                  style={tab===tabId?{background:'#1C1C1E',color:'#FFF'}:{color:'#9CA3AF'}}>
+                  {label}
+                </button>
+              ))}
             </div>
-          ) : (
-            <div key={item.id} className="flex items-center gap-3 bg-gray-50 rounded-2xl px-4 py-3">
-              <div className="flex-1 min-w-0">
-                <div className="text-sm font-medium text-gray-800 truncate">{item.name}</div>
-                {item.category && <div className="text-xs text-gray-400 mt-0.5">{categories.find(c=>c.id===item.category)?.emoji} {item.category}</div>}
-              </div>
-              <div className="text-sm font-bold flex-shrink-0" style={{color:accent}}>{isIncome?'+':'-'}NT${item.amount.toLocaleString()}</div>
-              <button onClick={()=>startEdit(item)} className="text-xs text-[#E8940A] px-2 py-1 rounded-lg hover:bg-[#FEF3DC]">編輯</button>
-              <button onClick={()=>deleteItem(item.id)} className="p-1 text-gray-300 hover:text-red-400">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
-              </button>
-            </div>
-          ))}
-        </div>
-        <div className="px-4 pb-8 pt-3 border-t border-gray-100 space-y-2">
-          <div className="text-xs font-semibold text-gray-400 px-1">{isIncome?'新增收入':'新增支出'}</div>
-          <div className="flex gap-2">
-            <input value={name} onChange={e=>setName(e.target.value)} placeholder={isIncome?'項目名稱（如：薪資）':'項目名稱（如：房租）'} className={`flex-1 ${inputCls}`}/>
-            <div className="flex items-center border border-gray-200 rounded-xl bg-white overflow-hidden w-32">
-              <input value={amount} onChange={e=>{ const v=e.target.value; if(v!==''&&!/^\d*\.?\d*$/.test(v)) return; setAmount(v); }}
-                placeholder="金額" type="text" inputMode={isTouch?'none':'decimal'}
-                onFocus={()=>{ if(isTouch) setCalcTarget('add'); }}
-                className="flex-1 px-2 py-2.5 text-sm outline-none bg-transparent w-0"/>
-              <button onClick={()=>setCalcTarget('add')} className="px-2 text-gray-300 hover:text-[#E8940A]">
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
-              </button>
+          )}
+
+          {/* Name input */}
+          <div className="mx-4 mt-2 bg-white rounded-2xl shadow-sm px-4 py-2.5 flex items-center gap-2">
+            <svg className="w-4 h-4 text-gray-300 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 6h16M4 12h16M4 18h7"/>
+            </svg>
+            <input type="text" value={name} onChange={e => setName(e.target.value)}
+              placeholder={isIncome ? '項目名稱（如：薪資）' : '項目名稱（如：房租）'}
+              className="flex-1 text-sm text-gray-600 outline-none placeholder-gray-300 bg-transparent"/>
+          </div>
+
+          {/* Amount display */}
+          <div className="px-5 pt-3 pb-2">
+            {pendingOp !== null && prevVal !== null && (
+              <div className="text-right text-sm text-gray-400 mb-0.5">{prevVal.toLocaleString()} {pendingOp}</div>
+            )}
+            <div className="text-right font-light" style={{
+              color: '#1C1C1E',
+              fontSize: displayStr.length > 10 ? '2.4rem' : displayStr.length > 7 ? '2.8rem' : '3.2rem',
+              lineHeight: 1.1
+            }}>
+              {displayStr}
             </div>
           </div>
-          {!isIncome && (
-            <select value={category} onChange={e=>setCategory(e.target.value)} className={`w-full ${inputCls}`}>
-              <option value="">不指定分類</option>
-              {categories.map(c => <option key={c.id} value={c.id}>{c.emoji} {c.label}</option>)}
-            </select>
+
+          {/* Category grid (expense only) */}
+          {!isIncome && categories && (
+            <div className="mx-3 bg-white rounded-2xl shadow-sm px-2 py-3">
+              <div className="grid grid-cols-5 gap-y-3">
+                {categories.map(c => {
+                  const isSelected = category === c.id;
+                  const IconComp = CAT_SVG[c.id];
+                  return (
+                    <button key={c.id} onClick={() => setCategory(c.id)} className="flex flex-col items-center gap-1">
+                      <div className="w-11 h-11 rounded-2xl flex items-center justify-center transition-all"
+                        style={{background: isSelected ? c.hex+'30' : c.hex+'18', color: c.hex, boxShadow: isSelected ? `0 0 0 2px white, 0 0 0 3px ${c.hex}` : 'none'}}>
+                        {IconComp ? <IconComp size={20}/> : <span className="text-lg">{c.emoji}</span>}
+                      </div>
+                      <span className={`text-[10px] font-medium leading-tight text-center transition-colors ${isSelected ? 'text-gray-800' : 'text-gray-400'}`}>{c.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           )}
-          <button onClick={addItem} disabled={!name.trim()||!parseFloat(amount)}
-            className="w-full py-3 text-white text-sm font-semibold rounded-2xl disabled:opacity-40"
-            style={{background:accent}}>
-            ＋ 新增
-          </button>
+
+          {/* Existing items list */}
+          {!editingId && shown.length > 0 && (
+            <div className="mx-3 mt-3 mb-2">
+              <div className="text-xs font-semibold text-gray-400 px-1 mb-1.5">已設定</div>
+              <div className="bg-white rounded-2xl shadow-sm divide-y divide-gray-50 overflow-hidden">
+                {shown.map(item => (
+                  <div key={item.id} className="flex items-center gap-3 px-4 py-3">
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium text-gray-800 truncate">{item.name}</div>
+                      {item.category && <div className="text-xs text-gray-400 mt-0.5">{categories.find(c=>c.id===item.category)?.emoji} {categories.find(c=>c.id===item.category)?.label}</div>}
+                    </div>
+                    <div className="text-sm font-bold flex-shrink-0" style={{color:accent}}>NT${item.amount.toLocaleString()}</div>
+                    <button onClick={() => startEdit(item)} className="text-xs text-[#E8940A] px-2 py-1 rounded-lg bg-[#FEF3DC]">編輯</button>
+                    <button onClick={() => deleteItem(item.id)} className="p-1 text-gray-300 active:text-red-400">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {editingId && (
+            <div className="mx-4 mt-2 mb-2">
+              <button onClick={cancelEdit} className="text-sm text-gray-400 underline">取消編輯</button>
+            </div>
+          )}
+          <div className="h-2"/>
+        </div>
+
+        {/* Dark keypad */}
+        <div className="flex-shrink-0 bg-[#1C1C1E] px-3 pt-3 pb-8">
+          <div className="grid grid-cols-4 gap-2">
+            {kpBtn('7','n')} {kpBtn('8','n')} {kpBtn('9','n')} {kpBtn('⌫','del')}
+            {kpBtn('4','n')} {kpBtn('5','n')} {kpBtn('6','n')} {kpBtn('+','op')}
+            {kpBtn('1','n')} {kpBtn('2','n')} {kpBtn('3','n')} {kpBtn('−','op')}
+            {kpBtn('','empty')} {kpBtn('0','n')} {kpBtn('.','n')} {kpBtn('✓','confirm')}
+          </div>
         </div>
       </div>
-      {calcTarget === 'add' && (
-        <CalcSheet initial={amount}
-          onApply={v => setAmount(v)}
-          onClose={() => setCalcTarget(null)} />
-      )}
-      {calcTarget === 'edit' && (
-        <CalcSheet initial={editAmount}
-          onApply={v => setEditAmount(v)}
-          onClose={() => setCalcTarget(null)} />
-      )}
     </div>
   );
 }
@@ -1810,12 +1889,16 @@ function AccountingView({ allExpenses, allIncomes, filterDate, onNavigateDate, o
   const isToday = filterDate === todayStr;
   const touchStartX = useRef(null);
   const [activeCat, setActiveCat] = useState(null);
-  const [fixedExpanded, setFixedExpanded] = useState(false);
+  const [fixedExpanded, setFixedExpanded] = useState(true);
 
   // Stats: derive month from current filterDate
   const statsMonth = filterDate ? filterDate.slice(0, 7) : todayStr.slice(0, 7);
   const [statsMonthState, setStatsMonth] = useState(statsMonth);
-  useEffect(() => { setStatsMonth(filterDate.slice(0,7)); }, [filterDate]);
+  const [statsPeriod, setStatsPeriod] = useState('month'); // 'all'|'week'|'month'|'year'|'custom'
+  const [statsYearState, setStatsYear] = useState(todayStr.slice(0, 4));
+  const [customStart, setCustomStart] = useState(() => todayStr.slice(0,7) + '-01');
+  const [customEnd, setCustomEnd] = useState(todayStr);
+  useEffect(() => { setStatsMonth(filterDate.slice(0,7)); setStatsYear(filterDate.slice(0,4)); }, [filterDate]);
 
   const navigateStatsMonth = (dir) => {
     setStatsMonth(m => {
@@ -1893,60 +1976,200 @@ function AccountingView({ allExpenses, allIncomes, filterDate, onNavigateDate, o
     return Object.entries(g).sort((a,b) => b[0].localeCompare(a[0]));
   }, [monthExpenses, monthIncomes]);
 
+  // Stats: year view data
+  const yearExpenses = useMemo(() =>
+    allExpenses.filter(r => (r.dueDate||'').slice(0,4) === statsYearState),
+    [allExpenses, statsYearState]
+  );
+  const yearIncomes = useMemo(() =>
+    allIncomes.filter(i => (i.date||'').slice(0,4) === statsYearState),
+    [allIncomes, statsYearState]
+  );
+  const yearExpTotal = yearExpenses.reduce((s,r) => s + (r.amount||0), 0);
+  const yearIncTotal = yearIncomes.reduce((s,i) => s + (i.amount||0), 0);
+  const yearBalance  = yearIncTotal - yearExpTotal;
+  const yearCategoryTotals = useMemo(() => {
+    const m = {};
+    yearExpenses.forEach(r => { const c = r.category||'其他'; m[c]=(m[c]||0)+(r.amount||0); });
+    return Object.entries(m).sort((a,b) => b[1]-a[1]);
+  }, [yearExpenses]);
+  const yearCategoryCounts = useMemo(() => {
+    const m = {};
+    yearExpenses.forEach(r => { const c = r.category||'其他'; m[c]=(m[c]||0)+1; });
+    return m;
+  }, [yearExpenses]);
+  const yearPieSlices = useMemo(() =>
+    yearCategoryTotals.map(([cat,amt]) => ({ hex: getCat(cat).hex, amount: amt, cat })),
+    [yearCategoryTotals, getCat]
+  );
+  const yearGrouped = useMemo(() => {
+    const g = {};
+    [...yearExpenses, ...yearIncomes.map(i => ({...i, _income:true, dueDate:i.date}))]
+      .forEach(r => { const k = (r.dueDate||r.date||'').slice(0,7); if (!g[k]) g[k]=[]; g[k].push(r); });
+    return Object.entries(g).sort((a,b) => b[0].localeCompare(a[0]));
+  }, [yearExpenses, yearIncomes]);
+
+  // Stats: week data (last 7 days)
+  const weekStart = useMemo(() => { const d = new Date(); d.setDate(d.getDate()-6); return d.toISOString().slice(0,10); }, []);
+  const weekExpenses = useMemo(() => allExpenses.filter(r => { const d=r.dueDate||''; return d>=weekStart&&d<=todayStr; }), [allExpenses, weekStart, todayStr]);
+  const weekIncomes  = useMemo(() => allIncomes.filter(i  => { const d=i.date||'';  return d>=weekStart&&d<=todayStr; }), [allIncomes,  weekStart, todayStr]);
+  const weekGrouped  = useMemo(() => {
+    const g = {};
+    [...weekExpenses, ...weekIncomes.map(i=>({...i,_income:true,dueDate:i.date}))]
+      .sort((a,b)=>(b.dueDate||b.date||'').localeCompare(a.dueDate||a.date||''))
+      .forEach(r=>{ const k=r.dueDate||r.date||'__'; if(!g[k])g[k]=[]; g[k].push(r); });
+    return Object.entries(g).sort((a,b)=>b[0].localeCompare(a[0]));
+  }, [weekExpenses, weekIncomes]);
+
+  // Stats: all-time data
+  const allGrouped = useMemo(() => {
+    const g = {};
+    [...allExpenses, ...allIncomes.map(i=>({...i,_income:true,dueDate:i.date}))]
+      .forEach(r=>{ const k=(r.dueDate||r.date||'').slice(0,7); if(!g[k])g[k]=[]; g[k].push(r); });
+    return Object.entries(g).sort((a,b)=>b[0].localeCompare(a[0]));
+  }, [allExpenses, allIncomes]);
+
+  // Stats: custom range data
+  const customExpenses = useMemo(() => allExpenses.filter(r=>{ const d=r.dueDate||''; return d>=customStart&&d<=customEnd; }), [allExpenses, customStart, customEnd]);
+  const customIncomes  = useMemo(() => allIncomes.filter(i=>{ const d=i.date||''; return d>=customStart&&d<=customEnd; }), [allIncomes, customStart, customEnd]);
+  const customSpanDays = useMemo(() => {
+    if (!customStart||!customEnd) return 1;
+    return Math.floor((new Date(customEnd)-new Date(customStart))/86400000)+1;
+  }, [customStart, customEnd]);
+  const customGrouped = useMemo(() => {
+    const g = {}; const byMonth = customSpanDays > 35;
+    [...customExpenses, ...customIncomes.map(i=>({...i,_income:true,dueDate:i.date}))]
+      .sort((a,b)=>(b.dueDate||b.date||'').localeCompare(a.dueDate||a.date||''))
+      .forEach(r=>{ const raw=r.dueDate||r.date||'__'; const k=byMonth?raw.slice(0,7):raw; if(!g[k])g[k]=[]; g[k].push(r); });
+    return Object.entries(g).sort((a,b)=>b[0].localeCompare(a[0]));
+  }, [customExpenses, customIncomes, customSpanDays]);
+
+  // Period flags — must be top-level (not inside `if`) to allow useMemo below
+  const isMonth  = statsPeriod === 'month';
+  const isYear   = statsPeriod === 'year';
+  const isWeek   = statsPeriod === 'week';
+  const isAll    = statsPeriod === 'all';
+  const isCustom = statsPeriod === 'custom';
+
+  const displayExpenses = isMonth ? monthExpenses : isYear ? yearExpenses : isWeek ? weekExpenses : isCustom ? customExpenses : allExpenses;
+  const displayIncomes  = isMonth ? monthIncomes  : isYear ? yearIncomes  : isWeek ? weekIncomes  : isCustom ? customIncomes  : allIncomes;
+  const rawExpTotal     = displayExpenses.reduce((s,r)=>s+(r.amount||0),0);
+  const rawIncTotal     = displayIncomes.reduce((s,i)=>s+(i.amount||0),0);
+  const displayCatTotals = useMemo(() => {
+    const m = {};
+    displayExpenses.forEach(r => { const c=r.category||'其他'; m[c]=(m[c]||0)+(r.amount||0); });
+    return Object.entries(m).sort((a,b)=>b[1]-a[1]);
+  }, [displayExpenses]);
+  const displayCatCounts = useMemo(() => {
+    const m = {};
+    displayExpenses.forEach(r => { const c=r.category||'其他'; m[c]=(m[c]||0)+1; });
+    return m;
+  }, [displayExpenses]);
+  const displayPieSlices = useMemo(() =>
+    displayCatTotals.map(([cat,amt])=>({ hex:getCat(cat).hex, amount:amt, cat })),
+    [displayCatTotals, getCat]
+  );
+
   if (subView === 'stats') {
+    // Period labels
     const smLabel = `${statsMonthState.slice(0,4)}年${parseInt(statsMonthState.slice(5,7))}月`;
+    const syLabel = `${statsYearState}年`;
+    const fmtDate = s => { const [,m,d]=s.split('-'); return `${parseInt(m)}/${parseInt(d)}`; };
+    const weekLabel = `${fmtDate(weekStart)} – ${fmtDate(todayStr)}`;
+    const customLabel = customStart && customEnd
+      ? (customSpanDays > 35
+          ? `${customStart.slice(0,7)} – ${customEnd.slice(0,7)}`
+          : `${fmtDate(customStart)} – ${fmtDate(customEnd)}`)
+      : '自訂區間';
+    const periodLabel = isMonth ? smLabel : isYear ? syLabel : isWeek ? weekLabel : isCustom ? customLabel : '全部期間';
+
+    const displayExpTotal = isMonth ? adjExpTotal : rawExpTotal;
+    const displayIncTotal = isMonth ? adjIncTotal : rawIncTotal;
+    const displayBalance  = isMonth ? adjBalance  : rawIncTotal - rawExpTotal;
+    const displayExpCount = displayExpenses.length;
+    const displayIncCount = displayIncomes.length;
+    const displayPieTotal = rawExpTotal;
+    const displayGrouped  = isMonth ? monthGrouped : isYear ? yearGrouped : isWeek ? weekGrouped : isCustom ? customGrouped : allGrouped;
+    const groupByMonth    = isYear || isAll || (isCustom && customSpanDays > 35);
+
     return (
       <div className="fade-in pb-6">
-        {/* Month navigator */}
-        <div className="mx-4 mt-4 bg-white rounded-2xl shadow-sm flex items-center px-2 py-2">
-          <button onClick={() => navigateStatsMonth(-1)}
-            className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-gray-100 active:bg-gray-200 transition-colors">
-            <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7"/></svg>
-          </button>
-          <div className="flex-1 text-center">
-            <div className="text-base font-semibold text-gray-700">{smLabel}</div>
-          </div>
-          <button onClick={() => navigateStatsMonth(1)}
-            className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-gray-100 active:bg-gray-200 transition-colors">
-            <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7"/></svg>
-          </button>
+        {/* Period selector pills */}
+        <div className="flex gap-2 mt-4 px-4 overflow-x-auto hide-scrollbar pb-0.5">
+          {[['全部期間','all'],['一週','week'],['一個月','month'],['一年','year'],['自訂','custom']].map(([lbl,val]) => (
+            <button key={val} onClick={() => setStatsPeriod(val)}
+              className="flex-shrink-0 px-4 py-2 rounded-full text-sm font-medium transition-all shadow-sm"
+              style={statsPeriod===val?{background:'#1C1C1E',color:'#FFF'}:{background:'#FFF',color:'#6B7280'}}>
+              {lbl}
+            </button>
+          ))}
         </div>
+
+        {/* Navigator — month / year only */}
+        {(isMonth || isYear) && (
+          <div className="mx-4 mt-2 bg-white rounded-2xl shadow-sm flex items-center px-1">
+            <button onClick={() => isYear ? setStatsYear(y => String(parseInt(y)-1)) : navigateStatsMonth(-1)}
+              className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-gray-100 active:bg-gray-200 transition-colors">
+              <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7"/></svg>
+            </button>
+            <div className="flex-1 text-center text-base font-semibold text-gray-700">{periodLabel}</div>
+            <button onClick={() => isYear ? setStatsYear(y => String(parseInt(y)+1)) : navigateStatsMonth(1)}
+              className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-gray-100 active:bg-gray-200 transition-colors">
+              <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7"/></svg>
+            </button>
+          </div>
+        )}
+
+        {/* Custom date range inputs */}
+        {isCustom && (
+          <div className="mx-4 mt-2 bg-white rounded-2xl shadow-sm flex items-center gap-2 px-4 py-3">
+            <input type="date" value={customStart} max={customEnd} onChange={e => setCustomStart(e.target.value)}
+              className="flex-1 text-sm text-gray-700 border-0 outline-none bg-transparent" />
+            <span className="text-gray-300 text-sm flex-shrink-0">—</span>
+            <input type="date" value={customEnd} min={customStart} onChange={e => setCustomEnd(e.target.value)}
+              className="flex-1 text-sm text-gray-700 border-0 outline-none bg-transparent" />
+          </div>
+        )}
 
         {/* Summary card */}
         <div className="mx-4 mt-3 bg-white rounded-2xl shadow-sm overflow-hidden">
           <div className="grid grid-cols-3 divide-x divide-gray-100">
             <div className="px-3 py-4 flex flex-col items-center">
               <div className="text-xs text-gray-400 mb-1.5">收入</div>
-              <div className="text-base font-bold text-[#34C759] leading-tight">{adjIncTotal.toLocaleString()}</div>
-              <div className="text-xs text-gray-300 mt-1">{monthIncomes.length}筆{fixedInTotal>0?'+固定':''}</div>
+              <div className="text-base text-gray-400 leading-tight" style={{fontWeight:300,fontVariantNumeric:'tabular-nums'}}>{displayIncTotal.toLocaleString()}</div>
+              <div className="text-xs text-gray-300 mt-1">{displayIncCount}筆{isMonth&&fixedInTotal>0?'+固定':''}</div>
             </div>
             <div className="px-3 py-4 flex flex-col items-center">
               <div className="text-xs text-gray-400 mb-1.5">支出</div>
-              <div className="text-base font-bold text-[#FF3B30] leading-tight">{adjExpTotal.toLocaleString()}</div>
-              <div className="text-xs text-gray-300 mt-1">{monthExpenses.length}筆{fixedExTotal>0?'+固定':''}</div>
+              <div className="text-base text-gray-400 leading-tight" style={{fontWeight:300,fontVariantNumeric:'tabular-nums'}}>{displayExpTotal.toLocaleString()}</div>
+              <div className="text-xs text-gray-300 mt-1">{displayExpCount}筆{isMonth&&fixedExTotal>0?'+固定':''}</div>
             </div>
             <div className="px-3 py-4 flex flex-col items-center">
-              <div className="text-xs text-gray-400 mb-1.5">結餘</div>
-              <div className={`text-base font-bold leading-tight ${adjBalance>=0?'text-[#E8940A]':'text-[#FF3B30]'}`}>{Math.abs(adjBalance).toLocaleString()}</div>
-              <div className="text-xs text-gray-300 mt-1">{smLabel}</div>
+              <div className="text-xs text-gray-400 mb-1.5">損益</div>
+              <div className="text-base leading-tight" style={{fontWeight:400,fontVariantNumeric:'tabular-nums',color:displayBalance>=0?'#4A9E92':'#CC3C55'}}>
+                {displayBalance>=0?'+':'-'}{Math.abs(displayBalance).toLocaleString()}
+              </div>
+              <div className="text-xs text-gray-300 mt-1">{periodLabel}</div>
             </div>
           </div>
         </div>
 
-        {/* Fixed items */}
-        {(fixedIncomes.length > 0 || fixedExpenses.length > 0) && (
-          <div className="mx-4 mt-3 bg-white rounded-2xl shadow-sm overflow-hidden">
-            <div className="px-4 py-3 flex items-center justify-between border-b border-gray-50">
-              <div className="text-xs font-semibold text-gray-500">每月固定</div>
-              <div className="flex items-center gap-1">
+        {/* Fixed items — month mode only */}
+        {isMonth && <div className="mx-4 mt-3 bg-white rounded-2xl shadow-sm overflow-hidden">
+          <div className="px-4 py-3 flex items-center justify-between border-b border-gray-50">
+            <div className="text-xs font-semibold text-gray-500">每月固定</div>
+            <div className="flex items-center gap-1">
+              {(fixedIncomes.length > 0 || fixedExpenses.length > 0) && (
                 <button onClick={() => setFixedExpanded(v => !v)}
                   className="text-xs text-gray-400 font-medium px-2 py-1 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-1">
                   <svg className={`w-3 h-3 transition-transform ${fixedExpanded?'rotate-90':''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7"/></svg>
                   {fixedExpanded ? '收合' : '明細'}
                 </button>
-                <button onClick={onManageFixed} className="text-xs text-[#E8940A] font-medium px-2 py-1 rounded-lg hover:bg-[#FEF3DC] transition-colors">管理</button>
-              </div>
+              )}
+              <button onClick={onManageFixed} className="text-xs text-[#E8940A] font-medium px-2 py-1 rounded-lg hover:bg-[#FEF3DC] transition-colors">管理</button>
             </div>
+          </div>
+          {(fixedIncomes.length > 0 || fixedExpenses.length > 0) ? (
             <div className="grid grid-cols-2 divide-x divide-gray-100">
               {[['固定收入', fixedIncomes, '#34C759'], ['固定支出', fixedExpenses, '#FF3B30']].map(([lbl, items, color]) => (
                 <div key={lbl} className="p-3">
@@ -1966,22 +2189,27 @@ function AccountingView({ allExpenses, allIncomes, filterDate, onNavigateDate, o
                 </div>
               ))}
             </div>
-          </div>
-        )}
+          ) : (
+            <button onClick={onManageFixed} className="w-full py-5 flex flex-col items-center gap-1.5 text-gray-300 hover:bg-gray-50 transition-colors">
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v16m8-8H4"/></svg>
+              <span className="text-xs">新增固定收入／支出</span>
+            </button>
+          )}
+        </div>}
 
         {/* Donut + category list */}
-        {categoryTotals.length > 0 && (
+        {displayCatTotals.length > 0 && (
           <div className="mx-4 mt-3 bg-white rounded-2xl shadow-sm overflow-hidden">
             <div className="px-4 pt-4 pb-2 cursor-pointer" onClick={() => setActiveCat(null)}>
-              <DonutChart slices={pieSlices} total={monthExpTotal} getCat={getCat}
+              <DonutChart slices={displayPieSlices} total={displayPieTotal} getCat={getCat}
                 activeCat={activeCat} onSliceClick={cat => setActiveCat(activeCat===cat?null:cat)}/>
             </div>
             {activeCat && <div className="mx-4 mb-2 text-xs text-center text-[#E8940A] font-medium">顯示「{getCat(activeCat).label}」明細 — 點擊取消</div>}
             <div className="border-t border-gray-100 px-4 pt-2 pb-3">
               <div className="text-xs font-semibold text-gray-400 mb-2 mt-1">分類資訊</div>
-              {categoryTotals.map(([cat,amt]) => {
+              {displayCatTotals.map(([cat,amt]) => {
                 const info = getCat(cat); const IconComp = CAT_SVG[cat];
-                const count = categoryCounts[cat]||0; const isActive = activeCat===cat;
+                const count = displayCatCounts[cat]||0; const isActive = activeCat===cat;
                 return (
                   <div key={cat} onClick={() => setActiveCat(isActive?null:cat)}
                     className="flex items-center gap-3 py-2.5 border-b border-gray-50 last:border-0 cursor-pointer rounded-lg px-1 transition-all">
@@ -1999,21 +2227,23 @@ function AccountingView({ allExpenses, allIncomes, filterDate, onNavigateDate, o
           </div>
         )}
 
-        {/* Monthly record list */}
-        {monthGrouped.length > 0 && (
+        {/* Record list — daily (month) or monthly (year) */}
+        {displayGrouped.length > 0 && (
           <div className="mx-4 mt-3 mb-2">
-            <div className="text-xs font-semibold text-gray-400 mb-2 px-1">每日明細</div>
-            {monthGrouped.map(([date, items]) => {
-              const [y,mo,d] = date.split('-');
-              const dayTotal = items.filter(r=>!r._income).reduce((s,r)=>s+(r.amount||0),0);
+            <div className="text-xs font-semibold text-gray-400 mb-2 px-1">{groupByMonth ? '每月明細' : '每日明細'}</div>
+            {displayGrouped.map(([key, its]) => {
+              const groupTotal = its.filter(r=>!r._income).reduce((s,r)=>s+(r.amount||0),0);
+              const groupLabel = groupByMonth
+                ? `${parseInt(key.slice(0,4))}年${parseInt(key.slice(5,7))}月`
+                : (() => { const [,mo,d] = key.split('-'); return `${parseInt(mo)}/${parseInt(d)}`; })();
               return (
-                <div key={date} className="mb-3">
+                <div key={key} className="mb-3">
                   <div className="flex items-center justify-between px-1 mb-1.5">
-                    <span className="text-xs text-gray-400 font-medium">{parseInt(mo)}/{parseInt(d)}</span>
-                    {dayTotal > 0 && <span className="text-xs font-semibold text-[#FF3B30]">-${dayTotal.toLocaleString()}</span>}
+                    <span className="text-xs text-gray-400 font-medium">{groupLabel}</span>
+                    {groupTotal > 0 && <span className="text-xs font-semibold text-[#FF3B30]">${groupTotal.toLocaleString()}</span>}
                   </div>
                   <div className="bg-white rounded-2xl shadow-sm overflow-hidden divide-y divide-gray-50">
-                    {items.map(r => r._income ? (
+                    {its.map(r => r._income ? (
                       <div key={r.id} className="flex items-center gap-3 px-4 py-3">
                         <div className="w-9 h-9 rounded-2xl flex items-center justify-center flex-shrink-0" style={{background:'#34C75918', color:'#34C759'}}>
                           <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
@@ -2043,10 +2273,10 @@ function AccountingView({ allExpenses, allIncomes, filterDate, onNavigateDate, o
             })}
           </div>
         )}
-        {monthGrouped.length === 0 && (
+        {displayGrouped.length === 0 && (
           <div className="mx-4 mt-6 flex flex-col items-center py-12 text-gray-400">
             <div className="text-4xl mb-3">📊</div>
-            <div className="text-sm">{smLabel}沒有記錄</div>
+            <div className="text-sm">{periodLabel}沒有記錄</div>
           </div>
         )}
       </div>
@@ -2055,14 +2285,7 @@ function AccountingView({ allExpenses, allIncomes, filterDate, onNavigateDate, o
 
   // ── Day view (default) ────────────────────────────────────────────────────
   return (
-    <div className="fade-in pb-36"
-      onTouchStart={e => { touchStartX.current = e.touches[0].clientX; }}
-      onTouchEnd={e => {
-        if (touchStartX.current === null) return;
-        const dx = e.changedTouches[0].clientX - touchStartX.current;
-        if (Math.abs(dx) > 50) onNavigateDate(dx < 0 ? 1 : -1);
-        touchStartX.current = null;
-      }}>
+    <div className="fade-in pb-36">
 
       {/* Day navigation bar */}
       <div className="mx-4 mt-4 bg-white rounded-2xl shadow-sm flex items-center px-1 py-1.5">
@@ -2103,12 +2326,54 @@ function AccountingView({ allExpenses, allIncomes, filterDate, onNavigateDate, o
         </div>
       )}
 
+      {/* Fixed items quick access row */}
+      <div className="mx-4 mt-2 bg-white rounded-xl shadow-sm overflow-hidden">
+        <div className="px-2 py-2.5 flex items-center gap-2">
+          <button onClick={() => setFixedExpanded(v => !v)}
+            className="w-8 h-8 flex items-center justify-center rounded-lg active:bg-gray-100 transition-colors flex-shrink-0">
+            <svg className={`w-4 h-4 transition-transform ${fixedExpanded ? 'text-[#E8940A]' : 'text-gray-300'}`}
+              fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16"/>
+            </svg>
+          </button>
+          <span className="text-xs text-gray-400 font-medium">每月固定</span>
+          {(fixedInTotal > 0 || fixedExTotal > 0) ? (
+            <div className="flex items-center gap-1.5 flex-1">
+              {fixedInTotal > 0 && <span className="text-xs font-semibold text-[#34C759]">{fixedInTotal.toLocaleString()}</span>}
+              {fixedInTotal > 0 && fixedExTotal > 0 && <span className="text-[10px] text-gray-200">|</span>}
+              {fixedExTotal > 0 && <span className="text-xs font-semibold text-[#FF3B30]">{fixedExTotal.toLocaleString()}</span>}
+            </div>
+          ) : (
+            <span className="flex-1 text-xs text-gray-300">尚未設定</span>
+          )}
+          <button onClick={onManageFixed} className="text-xs text-[#E8940A] font-semibold px-2.5 py-1 rounded-lg bg-[#FEF3DC] active:bg-[#E8940A]/20 transition-colors">管理</button>
+        </div>
+        {fixedExpanded && (fixedInTotal > 0 || fixedExTotal > 0) && (
+          <div className="border-t border-gray-50 grid grid-cols-2 divide-x divide-gray-100">
+            {[['固定收入', fixedIncomes, '#34C759'], ['固定支出', fixedExpenses, '#FF3B30']].map(([lbl, its, color]) => (
+              <div key={lbl} className="p-3">
+                <div className="text-[10px] text-gray-400 font-medium mb-1.5">{lbl}</div>
+                {its.length === 0
+                  ? <div className="text-[10px] text-gray-300">未設定</div>
+                  : its.map(i => (
+                    <div key={i.id} className="flex items-center justify-between gap-2 mb-1 last:mb-0">
+                      <span className="text-xs text-gray-600 truncate">{i.name}</span>
+                      <span className="text-xs font-semibold flex-shrink-0" style={{color}}>{i.amount.toLocaleString()}</span>
+                    </div>
+                  ))
+                }
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
       {/* Records list */}
       {!hasRecords ? (
         <div className="mx-4 mt-3 bg-white rounded-2xl shadow-sm flex flex-col items-center py-16 text-gray-400">
           <div className="text-4xl mb-3">💸</div>
           <div className="text-sm font-medium">{isToday ? '今天還沒有記錄' : '這天沒有記錄'}</div>
-          <div className="text-xs mt-1 text-gray-300">左右滑動切換日期</div>
+          <div className="text-xs mt-1 text-gray-300">點擊箭頭切換日期</div>
         </div>
       ) : (
         <div className="mx-4 mt-3 bg-white rounded-2xl shadow-sm overflow-hidden divide-y divide-gray-50">
@@ -2188,36 +2453,46 @@ function AccountingCard({ record, onEdit, onDelete }) {
 // ── JournalView ────────────────────────────────────────────────────────────
 function JournalView({ journals, journalTypes, onAdd, onEdit, onToggleStar }) {
   const [filter, setFilter] = useState('all');
+  const [showEmoji, setShowEmoji] = useState(false);
 
   const filtered = useMemo(() => {
-    const list = filter === 'all' ? journals : journals.filter(j =>
-      getJournalType(j.type, journalTypes).id === filter
-    );
+    let list;
+    if (filter === 'all') list = journals;
+    else if (filter === 'starred') list = journals.filter(j => j.starred);
+    else list = journals.filter(j => getJournalType(j.type, journalTypes).id === filter);
     return [...list].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
   }, [journals, filter, journalTypes]);
 
   return (
     <div className="fade-in pb-6">
-      {/* Compact filter row */}
-      <div className="px-4 pt-3 pb-2 flex flex-wrap gap-2">
-        <button onClick={() => setFilter('all')}
-          className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap flex-shrink-0 transition-all ${filter==='all' ? 'bg-[#5B8DB8] text-white shadow-sm' : 'bg-white text-[#8C857C] shadow-sm border border-[#5B8DB8]/20'}`}>
-          全部
-        </button>
-        <button onClick={() => setFilter('starred')}
-          className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap flex-shrink-0 transition-all ${filter==='starred' ? 'bg-[#5B8DB8] text-white shadow-sm' : 'bg-white text-[#8C857C] shadow-sm border border-[#5B8DB8]/20'}`}>
-          重要
-        </button>
-        {journalTypes.map(t => (
-          <button key={t.id} onClick={() => setFilter(t.id)}
-            className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap flex-shrink-0 transition-all ${filter===t.id ? 'bg-[#5B8DB8] text-white shadow-sm' : 'bg-white text-[#8C857C] shadow-sm border border-[#5B8DB8]/20'}`}>
-            {t.emoji} {t.label}
+      {/* Filter row */}
+      <div className="px-4 pt-3 pb-2 flex items-start gap-2">
+        <div className="flex flex-wrap gap-2 flex-1">
+          <button onClick={() => setFilter('all')}
+            className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap flex-shrink-0 transition-all ${filter==='all' ? 'bg-[#5B8DB8] text-white shadow-sm' : 'bg-white text-[#8C857C] shadow-sm border border-[#5B8DB8]/20'}`}>
+            全部
           </button>
-        ))}
+          <button onClick={() => setFilter('starred')}
+            className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap flex-shrink-0 transition-all ${filter==='starred' ? 'bg-[#5B8DB8] text-white shadow-sm' : 'bg-white text-[#8C857C] shadow-sm border border-[#5B8DB8]/20'}`}>
+            重要
+          </button>
+          {journalTypes.map(t => (
+            <button key={t.id} onClick={() => setFilter(t.id)}
+              className={`px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap flex-shrink-0 transition-all ${filter===t.id ? 'bg-[#5B8DB8] text-white shadow-sm' : 'bg-white text-[#8C857C] shadow-sm border border-[#5B8DB8]/20'}`}>
+              {showEmoji ? `${t.emoji} ` : ''}{t.label}
+            </button>
+          ))}
+        </div>
+        {/* Emoji toggle */}
+        <button onClick={() => setShowEmoji(v => !v)}
+          className={`flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-sm transition-all ${showEmoji ? 'bg-[#5B8DB8] text-white' : 'bg-white text-gray-400 border border-gray-200'}`}
+          title={showEmoji ? '隱藏圖示' : '顯示圖示'}>
+          😊
+        </button>
       </div>
 
       {/* List */}
-      {filtered.length === 0 || (filter === 'starred' && !filtered.some(j => j.starred)) ? (
+      {filtered.length === 0 ? (
         <div className="flex flex-col items-center py-20 text-gray-400">
           <div className="text-5xl mb-3">📔</div>
           <p className="text-sm">{filter === 'all' ? '尚無日誌記錄' : '這個分類還沒有記錄'}</p>
@@ -2225,8 +2500,8 @@ function JournalView({ journals, journalTypes, onAdd, onEdit, onToggleStar }) {
         </div>
       ) : (
         <div className="px-4 pt-2 space-y-2">
-          {(filter === 'starred' ? filtered.filter(j => j.starred) : filtered).map(j => (
-            <JournalCard key={j.id} journal={j} journalTypes={journalTypes} onEdit={onEdit} onToggleStar={onToggleStar} />
+          {filtered.map(j => (
+            <JournalCard key={j.id} journal={j} journalTypes={journalTypes} showEmoji={showEmoji} onEdit={onEdit} onToggleStar={onToggleStar} />
           ))}
         </div>
       )}
@@ -2235,7 +2510,7 @@ function JournalView({ journals, journalTypes, onAdd, onEdit, onToggleStar }) {
 }
 
 // ── JournalCard ─────────────────────────────────────────────────────────────
-function JournalCard({ journal, journalTypes, onEdit, onToggleStar }) {
+function JournalCard({ journal, journalTypes, showEmoji, onEdit, onToggleStar }) {
   const type = getJournalType(journal.type, journalTypes);
   const dateLabel = journal.date ? (() => {
     const [, mo, d] = journal.date.split('-');
@@ -2244,31 +2519,20 @@ function JournalCard({ journal, journalTypes, onEdit, onToggleStar }) {
 
   return (
     <button onClick={() => onEdit(journal)}
-      className="w-full text-left bg-white rounded-2xl shadow-sm overflow-hidden active:scale-[0.99] transition-all task-enter">
+      className="w-full text-left bg-white rounded-xl shadow-sm overflow-hidden active:scale-[0.99] transition-all task-enter">
       <div className="flex items-stretch">
         {/* Left color bar */}
         <div className="w-1 flex-shrink-0" style={{background:'#6BA0CC'}}/>
-        <div className="flex-1 flex items-center gap-3 px-4 py-3.5 min-w-0">
-          {/* Type icon */}
-          <div className="w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0" style={{background:'rgba(107,160,204,0.13)', color:'#4E86B0'}}>
-            <span className="text-lg leading-none">{type.emoji}</span>
+        <div className="flex-1 px-4 py-3 min-w-0 overflow-hidden">
+          {/* Title row */}
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-semibold text-gray-800 truncate flex-1 min-w-0">{journal.title}</span>
+            {journal.starred && <span className="text-xs flex-shrink-0">⭐</span>}
           </div>
-          {/* Content */}
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 mb-0.5">
-              <span className="text-xs font-medium text-gray-400">{type.label}</span>
-              {dateLabel && <span className="text-xs text-gray-400">· {dateLabel}</span>}
-            </div>
-            <div className="text-sm font-semibold text-gray-800 truncate">{journal.title}</div>
-            {journal.content && (
-              <div className="text-xs text-gray-400 mt-0.5 truncate">{journal.content}</div>
-            )}
+          {/* Meta row */}
+          <div className="text-xs text-gray-400 mt-0.5 truncate">
+            {showEmoji ? `${type.emoji} ` : ''}{type.label}{dateLabel ? ` · ${dateLabel}` : ''}{journal.content ? ` · ${journal.content}` : ''}
           </div>
-          {/* Star — only visible action on card */}
-          <button onClick={e => { e.stopPropagation(); onToggleStar(journal.id); }}
-            className={`text-xl flex-shrink-0 transition-all active:scale-110 ml-1 ${journal.starred ? 'text-amber-400 opacity-100' : 'opacity-0'}`}>
-            ⭐
-          </button>
         </div>
       </div>
     </button>
@@ -2276,7 +2540,7 @@ function JournalCard({ journal, journalTypes, onEdit, onToggleStar }) {
 }
 
 // ── JournalModal ────────────────────────────────────────────────────────────
-function JournalModal({ mode, journal, journalTypes: jTypes, onSave, onDelete, onClose }) {
+function JournalModal({ mode, journal, journalTypes: jTypes, onSave, onDelete, onClose, onGoToSettings }) {
   const journalTypesList = jTypes || DEFAULT_JOURNAL_TYPES;
   const today = new Date().toISOString().slice(0, 10);
   const [title, setTitle]     = useState(journal?.title || '');
@@ -2295,9 +2559,9 @@ function JournalModal({ mode, journal, journalTypes: jTypes, onSave, onDelete, o
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center">
+    <div className="fixed inset-0 z-50 flex flex-col justify-end">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose}/>
-      <div className="relative bg-white rounded-t-3xl w-full max-w-md shadow-2xl">
+      <div className="relative flex flex-col w-full max-w-md mx-auto rounded-t-3xl shadow-2xl" style={{minHeight:'75vh', maxHeight:'92vh', background:'#FAF6F1'}}>
         {/* Handle */}
         <div className="flex justify-center pt-3 pb-1">
           <div className="w-10 h-1 bg-gray-200 rounded-full"/>
@@ -2332,6 +2596,13 @@ function JournalModal({ mode, journal, journalTypes: jTypes, onSave, onDelete, o
                 {t.emoji} {t.label}
               </button>
             ))}
+            {onGoToSettings && (
+              <button onClick={onGoToSettings}
+                className="px-3 py-1.5 rounded-full text-xs font-medium transition-all"
+                style={{background:'rgba(0,0,0,0.04)', color:'#5B8DB8'}}>
+                ＋ 新增分類
+              </button>
+            )}
           </div>
 
           {/* Date */}
@@ -2527,7 +2798,15 @@ function CalcSheet({ initial = '', onApply, onClose }) {
     if (key === '=') {
       const r = evalExpr(expr);
       if (r !== null) {
-        onApply(String(r));
+        setPrevExpr(expr + ' =');
+        setExpr(String(parseFloat(r.toFixed(10)).toString()));
+      }
+      return;
+    }
+    if (key === '✓') {
+      const r = evalExpr(expr) ?? parseFloat(expr);
+      if (r !== null && isFinite(r) && r > 0) {
+        onApply(String(parseFloat(r.toFixed(2))));
         onClose();
       }
       return;
@@ -2558,7 +2837,7 @@ function CalcSheet({ initial = '', onApply, onClose }) {
   };
 
   return (
-    <div className="fixed inset-0 z-[60] flex items-end justify-center">
+    <div className="fixed inset-0 z-[60] flex items-end justify-center" onClick={e => e.stopPropagation()}>
       <div className="absolute inset-0 bg-black/30" onClick={onClose}/>
       <div className="relative w-full max-w-md bg-[#FAF6F1] rounded-t-3xl shadow-2xl">
         <div className="flex justify-center pt-3 pb-1"><div className="w-10 h-1 bg-gray-300 rounded-full"/></div>
@@ -2575,7 +2854,7 @@ function CalcSheet({ initial = '', onApply, onClose }) {
           </div>
         </div>
         {/* Keypad */}
-        <div className="px-3 pb-10 space-y-2.5">
+        <div className="px-3 pb-8 space-y-2.5">
           <div className="grid grid-cols-4 gap-2.5">
             {btn('AC','fn')} {btn('←','fn')} {btn('%','fn')} {btn('÷','op')}
           </div>
@@ -2591,6 +2870,11 @@ function CalcSheet({ initial = '', onApply, onClose }) {
           <div className="grid grid-cols-4 gap-2.5">
             {btn('0','n','col-span-2')} {btn('.','n')} {btn('=','eq')}
           </div>
+          <button onClick={() => press('✓')}
+            className="w-full h-[52px] rounded-2xl text-base font-bold text-white active:scale-95 transition-all"
+            style={{background:'linear-gradient(135deg,#E8940A,#D4820A)'}}>
+            套用金額
+          </button>
         </div>
       </div>
     </div>
@@ -2651,7 +2935,7 @@ const CAT_SVG = {
 };
 
 // ── RecordModal (income + expense combined) ────────────────────────────────
-function RecordModal({ mode, record, cats, recentMerchants = [], onSave, onDelete, onClose }) {
+function RecordModal({ mode, record, cats, recentMerchants = [], onSave, onDelete, onClose, onGoToSettings }) {
   const today = new Date().toISOString().slice(0, 10);
   const [recordType, setRecordType] = useState(record?.type || 'expense');
   const [title, setTitle]     = useState(record?.title    || '');
@@ -2810,6 +3094,12 @@ function RecordModal({ mode, record, cats, recentMerchants = [], onSave, onDelet
                   );
                 })}
               </div>
+              {onGoToSettings && (
+                <button onClick={onGoToSettings}
+                  className="w-full mt-2 pt-2 border-t border-gray-100 text-xs text-[#E8940A] font-medium text-center">
+                  ＋ 新增分類
+                </button>
+              )}
             </div>
           )}
 
@@ -2984,7 +3274,7 @@ function SettingsView({ categories, onSaveCategories, journalTypes, onSaveJourna
     <div className="fade-in px-4 pt-4 pb-8 space-y-4">
 
       {/* 記帳分類 */}
-      <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+      <div id="categories-section" className="bg-white rounded-2xl shadow-sm overflow-hidden">
         <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
           <div className="text-sm font-semibold text-gray-700">記帳分類</div>
           {catResetConfirm ? (
@@ -3050,7 +3340,7 @@ function SettingsView({ categories, onSaveCategories, journalTypes, onSaveJourna
       </div>
 
       {/* 日誌分類 */}
-      <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+      <div id="journal-types-section" className="bg-white rounded-2xl shadow-sm overflow-hidden">
         <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
           <div className="text-sm font-semibold text-gray-700">日誌分類</div>
           {jtResetConfirm ? (
