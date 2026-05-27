@@ -58,8 +58,8 @@
 const { useState, useEffect, useCallback, useRef, useMemo } = React;
 
 // ── Version ────────────────────────────────────────────────────────────────
-const APP_VERSION = '2.0.0';
-const APP_BUILD_DATE = '2026-05-26';
+const APP_VERSION = '2.1.2';
+const APP_BUILD_DATE = '2026-05-27';
 
 // ── Constants ──────────────────────────────────────────────────────────────
 const DEFAULT_CATEGORIES = [
@@ -118,30 +118,47 @@ function uid() {
   return Math.random().toString(36).slice(2) + Date.now().toString(36);
 }
 
+// 使用本地時區（避免 UTC 造成跨日偏差）
+function localDateStr(d) {
+  const now = d || new Date();
+  return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}-${String(now.getDate()).padStart(2,'0')}`;
+}
+
+// CSV 解析（支援引號欄位、BOM、\r\n）
+function parseCSV(text) {
+  // 明確去除 BOM（U+FEFF）以及常見的不可見前置字元
+  const clean = text.replace(/^﻿/, '').replace(/^​/, '');
+  const lines = clean.split(/\r?\n/);
+  const result = [];
+  for (const line of lines) {
+    if (!line.trim()) continue;
+    const cols = []; let col = '', inQuote = false;
+    for (let i = 0; i < line.length; i++) {
+      const c = line[i];
+      if (c === '"') { if (inQuote && line[i+1]==='"') { col+='"'; i++; } else { inQuote=!inQuote; } }
+      else if (c===',' && !inQuote) { cols.push(col); col=''; }
+      else { col+=c; }
+    }
+    cols.push(col);
+    result.push(cols);
+  }
+  return result;
+}
+
+// 在 headers 陣列中尋找欄位，支援多個別名
+function findCol(headers, ...aliases) {
+  for (const alias of aliases) {
+    const i = headers.findIndex(h => h.replace(/﻿/g,'').trim() === alias);
+    if (i >= 0) return i;
+  }
+  return -1;
+}
+
 // ── Default Journal Data ───────────────────────────────────────────────────
-const DEFAULT_JOURNALS = [
-  {
-    id: 'j1', title: '完成季度目標報告',
-    content: '今天終於把Q1的報告整理完成，數據超出預期，團隊表現很棒！',
-    date: '2026-04-18', type: '工作', starred: true,
-  },
-  {
-    id: 'j2', title: '家族聚餐',
-    content: '難得全家人齊聚，媽媽做了拿手的紅燒肉，很開心的一天。',
-    date: '2026-04-15', type: '生活', starred: false,
-  },
-  {
-    id: 'j3', title: '新產品創意',
-    content: '突然想到可以用AI幫助用戶自動分類消費，記下來之後研究。',
-    date: '2026-04-10', type: '靈感', starred: true,
-  },
-];
+const DEFAULT_JOURNALS = [];
 
 // ── Default Income Data ────────────────────────────────────────────────────
-const DEFAULT_INCOMES = [
-  { id: 'i1', title: '四月薪資', amount: 45000, date: '2026-04-05', note: '稅後薪資' },
-  { id: 'i2', title: '兼職收入', amount: 8000,  date: '2026-04-15', note: '週末家教' },
-];
+const DEFAULT_INCOMES = [];
 
 const DEFAULT_FIXED_ITEMS = [];
 
@@ -393,7 +410,7 @@ function App() {
   const [filterMonth, setFilterMonth] = useState(() => {
     const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
   });
-  const [filterDate,  setFilterDate]  = useState(() => new Date().toISOString().slice(0,10));
+  const [filterDate,  setFilterDate]  = useState(() => localDateStr());
   const [acctView, setAcctView] = useState('records'); // 'records' | 'stats'
   const [splashDone, setSplashDone] = useState(false);
   const pageSwipeX = useRef(null);
@@ -417,7 +434,7 @@ function App() {
     } else {
       setFilterDate(dt => {
         const nd = new Date(dt); nd.setDate(nd.getDate() + dir);
-        return nd.toISOString().slice(0,10);
+        return localDateStr(nd);
       });
     }
   }, [dateViewMode]);
@@ -430,6 +447,24 @@ function App() {
     if (mode === 'month' && dateViewMode === 'day') setFilterMonth(filterDate.slice(0,7));
     if (mode === 'month' && dateViewMode === 'year') setFilterMonth(`${filterYear}-01`);
   }, [filterMonth, filterDate, filterYear, dateViewMode]);
+
+  // 當 app 重新變成可見（切回前景），若日期已跨天則自動更新 filterDate
+  const lastKnownTodayRef = useRef(localDateStr());
+  useEffect(() => {
+    const handleVisible = () => {
+      if (document.visibilityState === 'visible') {
+        const today = localDateStr();
+        if (lastKnownTodayRef.current !== today) {
+          const oldToday = lastKnownTodayRef.current;
+          lastKnownTodayRef.current = today;
+          // 只在使用者當時停留在「今日」時才自動跳到新的今日
+          setFilterDate(prev => prev === oldToday ? today : prev);
+        }
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisible);
+    return () => document.removeEventListener('visibilitychange', handleVisible);
+  }, []);
 
   useEffect(() => { saveState('lists', lists); }, [lists]);
   useEffect(() => { saveState('tasks', tasks); }, [tasks]);
@@ -480,7 +515,7 @@ function App() {
     if (toJournal) {
       setJournalModal({
         mode: 'add',
-        journal: { title: task.title, content: task.notes || '', date: task.dueDate || new Date().toISOString().slice(0,10), type: '生活', starred: false },
+        journal: { title: task.title, content: task.notes || '', date: task.dueDate || localDateStr(), type: '生活', starred: false },
       });
     }
     // 偵測到的金額（非 isPurchase 任務）→ 新增為直接支出
@@ -489,7 +524,7 @@ function App() {
         type: 'expense',
         title: task.title,
         amount: amount,
-        date: task.dueDate || new Date().toISOString().slice(0,10),
+        date: task.dueDate || localDateStr(),
         note: task.notes || '',
         category: task.category || null,
         merchant: '',
@@ -577,7 +612,7 @@ function App() {
       journal: {
         title: task.title,
         content: task.notes || '',
-        date: task.dueDate || new Date().toISOString().slice(0, 10),
+        date: task.dueDate || localDateStr(),
         type: '生活',
         starred: false,
         _fromTaskId: task.id,
@@ -621,36 +656,141 @@ function App() {
     setJournals(prev => prev.map(j => j.id === id ? { ...j, starred: !j.starred } : j));
   }, []);
 
-  // ── Import JSON ───────────────────────────────────────────────────────────
+  // ── Import JSON / CSV ─────────────────────────────────────────────────────
   const handleImportFile = useCallback((e) => {
     const file = e.target.files[0];
     if (!file) return;
+    setImportResult(null); // 清除上次結果
     e.target.value = '';
     const reader = new FileReader();
+    const fname = file.name.toLowerCase();
+    const isCsv  = fname.endsWith('.csv');
+    const isJson = fname.endsWith('.json');
+    if (!isCsv && !isJson) {
+      setImportResult({ ok: false, message: '❌ 不支援此格式，請選擇 .csv 或 .json 檔案' });
+      return;
+    }
     reader.onload = (ev) => {
-      try {
-        const json = JSON.parse(ev.target.result);
-        const newLists = [], newTasks = [];
-        if (json.kind === 'tasks#taskLists' && Array.isArray(json.items)) {
-          for (const list of json.items) {
-            const listId = uid();
-            newLists.push({ id: listId, name: list.title || '匯入清單' });
-            for (const task of (list.items || [])) {
-              newTasks.push({ id: uid(), listId, title: task.title || '', notes: task.notes || '', dueDate: task.due ? task.due.slice(0,10) : '', completed: task.status === 'completed', pinned: false, isPurchase: false, amount: null, category: null, merchant: null, subtasks: [] });
+      const text = ev.target.result;
+      if (isCsv) {
+        // ── CSV 匯入：記帳明細（支出 + 收入）──────────────────────────────
+        try {
+          const rows = parseCSV(text);
+          if (rows.length < 2) { setImportResult({ ok: false, message: '❌ CSV 檔案為空或格式不正確' }); return; }
+          const header = rows[0].map(h => h.replace(/﻿/g,'').trim());
+
+          // 欄位偵測（支援 poinote 格式 + Fortunecity 格式）
+          const di = findCol(header,'日期','Recorded At','Date','date','datetime','DateTime','日');
+          const ti = findCol(header,'類型','Type','type','收支','收支類型'); // Fortunecity 無此欄，留 -1
+          const ni = findCol(header,'標題','note','Note','memo','Memo','Title','title','說明','摘要','項目','備註','Description','desc');
+          const ai = findCol(header,'金額','Amount','amount','費用','Price','price');
+          const ci = findCol(header,'分類','Category','category','類別');
+          const mi = findCol(header,'商家','Account','account','Merchant','merchant','店家','來源');
+
+          // 至少要有：日期、標題（或備註）、金額
+          if (di<0 || ni<0 || ai<0) {
+            const found = header.slice(0,8).join('、') || '（無）';
+            setImportResult({ ok: false, message: `❌ 找不到必要欄位（日期、標題/note、金額）\n你的欄位：${found}` });
+            return;
+          }
+
+          // Fortunecity 分類 → poinote 分類 對應表
+          const FC_CAT_MAP = {
+            '飲品':'飲食','飲料':'飲食','食物':'飲食','食品':'飲食',
+            '水果':'飲食','蔬菜':'飲食','早餐':'飲食','午餐':'飲食','晚餐':'飲食','餐飲':'飲食',
+            '衣服':'購物','服飾':'購物','消費':'購物','網購':'購物',
+            '淨靈謝禮':'淨靈','謝禮':'淨靈',
+            '美容':'其他','醫藥':'醫療','藥品':'醫療',
+            '電費':'居家','水費':'居家','網路':'居家','房租':'居家',
+          };
+
+          const newExp=[], newInc=[];
+          for (let i=1; i<rows.length; i++) {
+            const row=rows[i]; if (row.length<3) continue;
+
+            // 日期：支援 "2026/05/26 19:39"、"2026-05-26"、"2026-05-26T19:39"
+            let date = (row[di]?.trim()||'').split(/\s|T/)[0].replace(/\//g,'-');
+            if (!date.match(/^\d{4}-\d{2}-\d{2}$/)) continue; // 日期格式不對就跳過
+
+            const name    = row[ni]?.trim()||'';
+            const amount  = parseFloat((row[ai]?.trim()||'0').replace(/,/g,''));
+            const catRaw  = ci>=0 ? (row[ci]?.trim()||'') : '';
+            const merchant= mi>=0 ? (row[mi]?.trim()||'') : '';
+            if (!name||!amount||isNaN(amount)||amount<=0) continue;
+
+            // 判斷類型：有明確「類型」欄 → 用欄位值；無 → 以 Category="收入" 判斷
+            let type;
+            if (ti>=0) {
+              type = row[ti]?.trim()||'';
+            } else {
+              type = (catRaw==='收入'||catRaw==='income'||catRaw==='Income') ? '收入' : '支出';
+            }
+
+            // 分類對應
+            let catId = null;
+            if (type==='支出') {
+              const poinoteCat = categories.find(c=>c.label===catRaw||c.id===catRaw)
+                || (FC_CAT_MAP[catRaw] ? categories.find(c=>c.label===FC_CAT_MAP[catRaw]||c.id===FC_CAT_MAP[catRaw]) : null);
+              catId = poinoteCat ? poinoteCat.id : null;
+            }
+
+            if (type==='收入') {
+              newInc.push({ id:uid(), title:name, amount, date, note:merchant });
+            } else {
+              newExp.push({ id:uid(), type:'expense', title:name, amount, date, dueDate:date, category:catId, merchant, note:'', _direct:true });
             }
           }
-          setLists(prev => [...prev, ...newLists]);
-          setTasks(prev => [...prev, ...newTasks]);
-          setImportResult({ ok: true, message: `✅ 匯入成功！${newLists.length} 個清單，共 ${newTasks.length} 筆任務` });
-        } else {
-          setImportResult({ ok: false, message: '❌ 不支援此格式，請使用 Google Tasks 匯出的 JSON 檔案' });
+          if (newExp.length===0&&newInc.length===0) { setImportResult({ ok: false, message: '❌ 未找到可匯入的記帳資料，請確認格式正確' }); return; }
+          if (newExp.length>0) setDirectExpenses(prev=>[...prev,...newExp]);
+          if (newInc.length>0) setIncomes(prev=>[...prev,...newInc]);
+          setImportResult({ ok: true, message: `✅ CSV 匯入成功！${newInc.length} 筆收入、${newExp.length} 筆支出` });
+        } catch(err) {
+          setImportResult({ ok: false, message: `❌ CSV 解析失敗：${err.message}` });
         }
-      } catch(e) {
-        setImportResult({ ok: false, message: '❌ 檔案解析失敗，請確認是有效的 JSON 格式' });
+      } else {
+        // ── JSON 匯入：Google Tasks 或 poinote 備份 ───────────────────────
+        try {
+          const json = JSON.parse(text);
+          if (json.kind === 'tasks#taskLists' && Array.isArray(json.items)) {
+            // Google Tasks 格式
+            const newLists=[], newTasks=[];
+            for (const list of json.items) {
+              const listId=uid();
+              newLists.push({ id:listId, name:list.title||'匯入清單' });
+              for (const task of (list.items||[])) {
+                newTasks.push({ id:uid(), listId, title:task.title||'', notes:task.notes||'', dueDate:task.due?task.due.slice(0,10):'', completed:task.status==='completed', pinned:false, isPurchase:false, amount:null, category:null, merchant:null, subtasks:[] });
+              }
+            }
+            setLists(prev=>[...prev,...newLists]);
+            setTasks(prev=>[...prev,...newTasks]);
+            setImportResult({ ok: true, message: `✅ 匯入成功！${newLists.length} 個清單，共 ${newTasks.length} 筆任務` });
+          } else if (json.exportDate !== undefined && (json.lists||json.tasks||json.incomes||json.directExpenses)) {
+            // poinote 備份格式（以 ID 去重，合併進現有資料）
+            const merge = (setter, arr) => {
+              if (!Array.isArray(arr)||!arr.length) return 0;
+              setter(prev => { const ids=new Set(prev.map(x=>x.id)); return [...prev,...arr.filter(x=>!ids.has(x.id))]; });
+              return arr.length;
+            };
+            const s=[];
+            const nl=merge(setLists,json.lists); if(nl) s.push(`${nl}個清單`);
+            const nt=merge(setTasks,json.tasks); if(nt) s.push(`${nt}筆任務`);
+            const ni=merge(setIncomes,json.incomes); if(ni) s.push(`${ni}筆收入`);
+            const ne=merge(setDirectExpenses,json.directExpenses); if(ne) s.push(`${ne}筆支出`);
+            merge(setJournals,json.journals);
+            merge(setFixedItems,json.fixedItems);
+            if (Array.isArray(json.categories)&&json.categories.length) setCategories(json.categories);
+            if (Array.isArray(json.journalTypes)&&json.journalTypes.length) setJournalTypes(json.journalTypes);
+            setImportResult({ ok: true, message: `✅ 備份匯入成功！${s.join('、')||'無新資料'}` });
+          } else {
+            setImportResult({ ok: false, message: '❌ 不支援此格式，請使用本 App 備份 JSON、Google Tasks JSON 或記帳 CSV' });
+          }
+        } catch(err) {
+          setImportResult({ ok: false, message: '❌ 檔案解析失敗，請確認是有效的 JSON 格式' });
+        }
       }
     };
     reader.readAsText(file);
-  }, []);
+  }, [categories]);
 
   // ── Export ───────────────────────────────────────────────────────────────
   const handleExportJSON = useCallback(() => {
@@ -745,10 +885,18 @@ function App() {
             <span style={{fontSize:12, color:'#E8940A', letterSpacing:4, marginLeft:4}}>計點事</span>
           </h1>
           {tab === 'accounting' && (
-            <button onClick={() => setAcctView(v => v === 'stats' ? 'records' : 'stats')}
-              className={`w-9 h-9 flex items-center justify-center rounded-full transition-all ${acctView==='stats' ? 'bg-[#E8940A] text-white shadow' : 'text-gray-400 bg-gray-100 hover:bg-gray-200'}`}>
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
-            </button>
+            <div className="flex items-center rounded-full p-0.5" style={{background:'rgba(0,0,0,0.07)'}}>
+              <button onClick={() => setAcctView('records')}
+                className="px-3 py-1.5 rounded-full text-xs font-semibold transition-all"
+                style={acctView==='records'?{background:'white',color:'#1C1C1E',boxShadow:'0 1px 3px rgba(0,0,0,0.12)'}:{color:'#8E8E93'}}>
+                明細
+              </button>
+              <button onClick={() => setAcctView('stats')}
+                className="px-3 py-1.5 rounded-full text-xs font-semibold transition-all"
+                style={acctView==='stats'?{background:'#E8940A',color:'white',boxShadow:'0 1px 3px rgba(232,148,10,0.35)'}:{color:'#8E8E93'}}>
+                統計
+              </button>
+            </div>
           )}
         </div>
         </div>{/* end relative z-1 content wrapper */}
@@ -812,8 +960,8 @@ function App() {
             allExpenses={accountingRecords}
             allIncomes={incomes}
             filterDate={filterDate}
-            onNavigateDate={(dir) => setFilterDate(d => { const nd = new Date(d); nd.setDate(nd.getDate()+dir); return nd.toISOString().slice(0,10); })}
-            onGoToday={() => setFilterDate(new Date().toISOString().slice(0,10))}
+            onNavigateDate={(dir) => setFilterDate(d => { const nd = new Date(d); nd.setDate(nd.getDate()+dir); return localDateStr(nd); })}
+            onGoToday={() => setFilterDate(localDateStr())}
             onEditIncome={(i) => setRecordModal({ mode: 'edit', record: { type: 'income', ...i } })}
             onDeleteIncome={deleteIncome}
             onEditExpense={(r) => r._direct
@@ -830,7 +978,12 @@ function App() {
             categories={categories} onSaveCategories={setCategories}
             journalTypes={journalTypes} onSaveJournalTypes={setJournalTypes}
             onImportFile={handleImportFile} importResult={importResult}
+            onClearImportResult={() => setImportResult(null)}
             onExportJSON={handleExportJSON} onExportCSV={handleExportCSV}
+            onClearAllData={() => {
+              localStorage.clear();
+              window.location.reload();
+            }}
           />
         )}
       </main>
@@ -1058,7 +1211,7 @@ function QuickAddBar({ onSave, onOpenRecord, onDetail, onClose }) {
   // 儲存任務 + 開啟 RecordModal 預填
   const doSaveWithRecord = () => {
     if (!title.trim()) return;
-    const today = new Date().toISOString().slice(0, 10);
+    const today = localDateStr();
     // 先儲存任務（無記帳旗標）
     onSave({ title: title.trim(), dueDate, pinned,
       isPurchase: false, amount: null,
@@ -1365,7 +1518,7 @@ function TaskItem({ task, pinned, onToggleComplete, onTogglePin, onEdit,
             <div className="flex items-center gap-2 mt-0.5">
               {task.dueDate && (
                 <span className={`text-xs flex items-center gap-0.5 ${
-                  !task.completed && task.dueDate < new Date().toISOString().slice(0,10)
+                  !task.completed && task.dueDate < localDateStr()
                     ? 'text-[#FF3B30]' : 'text-gray-400'
                 }`}>
                   <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
@@ -1885,11 +2038,11 @@ function FixedItemsModal({ items, categories, onSave, onClose }) {
 // ── AccountingView ─────────────────────────────────────────────────────────
 function AccountingView({ allExpenses, allIncomes, filterDate, onNavigateDate, onGoToday, fixedItems = [], onManageFixed, onEditExpense, onDeleteExpense, onEditIncome, onDeleteIncome, subView = 'records' }) {
   const { getCat } = React.useContext(CategoriesCtx);
-  const todayStr = new Date().toISOString().slice(0, 10);
+  const todayStr = localDateStr();
   const isToday = filterDate === todayStr;
   const touchStartX = useRef(null);
   const [activeCat, setActiveCat] = useState(null);
-  const [fixedExpanded, setFixedExpanded] = useState(true);
+  const [fixedExpanded, setFixedExpanded] = useState(false);
 
   // Stats: derive month from current filterDate
   const statsMonth = filterDate ? filterDate.slice(0, 7) : todayStr.slice(0, 7);
@@ -2010,7 +2163,7 @@ function AccountingView({ allExpenses, allIncomes, filterDate, onNavigateDate, o
   }, [yearExpenses, yearIncomes]);
 
   // Stats: week data (last 7 days)
-  const weekStart = useMemo(() => { const d = new Date(); d.setDate(d.getDate()-6); return d.toISOString().slice(0,10); }, []);
+  const weekStart = useMemo(() => { const d = new Date(); d.setDate(d.getDate()-6); return localDateStr(d); }, []);
   const weekExpenses = useMemo(() => allExpenses.filter(r => { const d=r.dueDate||''; return d>=weekStart&&d<=todayStr; }), [allExpenses, weekStart, todayStr]);
   const weekIncomes  = useMemo(() => allIncomes.filter(i  => { const d=i.date||'';  return d>=weekStart&&d<=todayStr; }), [allIncomes,  weekStart, todayStr]);
   const weekGrouped  = useMemo(() => {
@@ -2091,6 +2244,13 @@ function AccountingView({ allExpenses, allIncomes, filterDate, onNavigateDate, o
     const displayPieTotal = rawExpTotal;
     const displayGrouped  = isMonth ? monthGrouped : isYear ? yearGrouped : isWeek ? weekGrouped : isCustom ? customGrouped : allGrouped;
     const groupByMonth    = isYear || isAll || (isCustom && customSpanDays > 35);
+
+    // 分類篩選：activeCat 時只保留該分類的支出項目
+    const catFilteredGrouped = activeCat
+      ? displayGrouped
+          .map(([key, its]) => [key, its.filter(r => !r._income && (r.category||'其他') === activeCat)])
+          .filter(([, its]) => its.length > 0)
+      : displayGrouped;
 
     return (
       <div className="fade-in pb-6">
@@ -2204,7 +2364,6 @@ function AccountingView({ allExpenses, allIncomes, filterDate, onNavigateDate, o
               <DonutChart slices={displayPieSlices} total={displayPieTotal} getCat={getCat}
                 activeCat={activeCat} onSliceClick={cat => setActiveCat(activeCat===cat?null:cat)}/>
             </div>
-            {activeCat && <div className="mx-4 mb-2 text-xs text-center text-[#E8940A] font-medium">顯示「{getCat(activeCat).label}」明細 — 點擊取消</div>}
             <div className="border-t border-gray-100 px-4 pt-2 pb-3">
               <div className="text-xs font-semibold text-gray-400 mb-2 mt-1">分類資訊</div>
               {displayCatTotals.map(([cat,amt]) => {
@@ -2228,10 +2387,27 @@ function AccountingView({ allExpenses, allIncomes, filterDate, onNavigateDate, o
         )}
 
         {/* Record list — daily (month) or monthly (year) */}
-        {displayGrouped.length > 0 && (
+        {catFilteredGrouped.length > 0 && (
           <div className="mx-4 mt-3 mb-2">
-            <div className="text-xs font-semibold text-gray-400 mb-2 px-1">{groupByMonth ? '每月明細' : '每日明細'}</div>
-            {displayGrouped.map(([key, its]) => {
+            <div className="flex items-center justify-between px-1 mb-2">
+              {activeCat ? (
+                <>
+                  <div className="flex items-center gap-1.5">
+                    <div className="w-3 h-3 rounded-full flex-shrink-0" style={{background: getCat(activeCat).hex}}></div>
+                    <span className="text-xs font-semibold" style={{color: getCat(activeCat).hex}}>{getCat(activeCat).label}</span>
+                    <span className="text-xs text-gray-400">明細</span>
+                  </div>
+                  <button onClick={() => setActiveCat(null)}
+                    className="text-xs text-gray-400 hover:text-gray-600 flex items-center gap-0.5 px-2 py-0.5 rounded-full border border-gray-200 hover:bg-gray-50 transition-colors">
+                    <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12"/></svg>
+                    取消篩選
+                  </button>
+                </>
+              ) : (
+                <span className="text-xs font-semibold text-gray-400">{groupByMonth ? '每月明細' : '每日明細'}</span>
+              )}
+            </div>
+            {catFilteredGrouped.map(([key, its]) => {
               const groupTotal = its.filter(r=>!r._income).reduce((s,r)=>s+(r.amount||0),0);
               const groupLabel = groupByMonth
                 ? `${parseInt(key.slice(0,4))}年${parseInt(key.slice(5,7))}月`
@@ -2273,10 +2449,20 @@ function AccountingView({ allExpenses, allIncomes, filterDate, onNavigateDate, o
             })}
           </div>
         )}
-        {displayGrouped.length === 0 && (
+        {catFilteredGrouped.length === 0 && (
           <div className="mx-4 mt-6 flex flex-col items-center py-12 text-gray-400">
-            <div className="text-4xl mb-3">📊</div>
-            <div className="text-sm">{periodLabel}沒有記錄</div>
+            {activeCat ? (
+              <>
+                <div className="text-4xl mb-3">{getCat(activeCat).emoji}</div>
+                <div className="text-sm">{periodLabel}沒有「{getCat(activeCat).label}」的記錄</div>
+                <button onClick={() => setActiveCat(null)} className="mt-3 text-xs text-[#E8940A] underline">取消篩選</button>
+              </>
+            ) : (
+              <>
+                <div className="text-4xl mb-3">📊</div>
+                <div className="text-sm">{periodLabel}沒有記錄</div>
+              </>
+            )}
           </div>
         )}
       </div>
@@ -2542,7 +2728,7 @@ function JournalCard({ journal, journalTypes, showEmoji, onEdit, onToggleStar })
 // ── JournalModal ────────────────────────────────────────────────────────────
 function JournalModal({ mode, journal, journalTypes: jTypes, onSave, onDelete, onClose, onGoToSettings }) {
   const journalTypesList = jTypes || DEFAULT_JOURNAL_TYPES;
-  const today = new Date().toISOString().slice(0, 10);
+  const today = localDateStr();
   const [title, setTitle]     = useState(journal?.title || '');
   const [content, setContent] = useState(journal?.content || '');
   const [date, setDate]       = useState(journal?.date || today);
@@ -2936,7 +3122,7 @@ const CAT_SVG = {
 
 // ── RecordModal (income + expense combined) ────────────────────────────────
 function RecordModal({ mode, record, cats, recentMerchants = [], onSave, onDelete, onClose, onGoToSettings }) {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = localDateStr();
   const [recordType, setRecordType] = useState(record?.type || 'expense');
   const [title, setTitle]     = useState(record?.title    || '');
   const [date,  setDate]      = useState(record?.date     || today);
@@ -3227,7 +3413,9 @@ function EmojiPicker({ value, onChange }) {
 }
 
 // ── SettingsView ───────────────────────────────────────────────────────────
-function SettingsView({ categories, onSaveCategories, journalTypes, onSaveJournalTypes, onImportFile, importResult, onExportJSON, onExportCSV }) {
+function SettingsView({ categories, onSaveCategories, journalTypes, onSaveJournalTypes, onImportFile, importResult, onClearImportResult, onExportJSON, onExportCSV, onClearAllData }) {
+  const importInputRef = useRef(null);
+  const [clearConfirm, setClearConfirm] = useState(false);
   // ── 記帳分類 state ──
   const [catEditingId, setCatEditingId] = useState(null);
   const [catEditLabel, setCatEditLabel] = useState('');
@@ -3431,20 +3619,55 @@ function SettingsView({ categories, onSaveCategories, journalTypes, onSaveJourna
             </div>
           </button>
           {/* Import */}
-          <label className="flex items-center w-full px-4 py-3 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors cursor-pointer">
+          <button type="button" onClick={() => { onClearImportResult?.(); importInputRef.current?.click(); }}
+            className="flex items-center w-full px-4 py-3 bg-gray-50 rounded-xl hover:bg-gray-100 active:bg-gray-200 transition-colors text-left">
             <div className="w-9 h-9 rounded-full bg-gray-200 flex items-center justify-center mr-3 flex-shrink-0">
               <svg className="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
             </div>
             <div>
-              <div className="text-sm font-medium text-gray-600">匯入備份 / Google Tasks</div>
-              <div className="text-xs text-gray-400 mt-0.5">支援本 App 備份 JSON 或 Google Tasks 格式</div>
+              <div className="text-sm font-medium text-gray-600">匯入備份 / 記帳 CSV</div>
+              <div className="text-xs text-gray-400 mt-0.5">支援本 App 備份 JSON、Google Tasks JSON、記帳明細 CSV</div>
             </div>
-            <input type="file" accept=".json" onChange={onImportFile} className="hidden"/>
-          </label>
+          </button>
+          {/* 真正的 file input — 移出 label，用 ref 觸發，不用 display:none */}
+          <input ref={importInputRef} type="file" onChange={onImportFile}
+            style={{position:'fixed', top:'-200px', left:'-200px', width:'1px', height:'1px', opacity:0}} />
           {importResult && (
-            <div className={`p-3 rounded-xl text-sm ${importResult.ok ? 'bg-[#34C759]/10 text-[#34C759]' : 'bg-[#FF3B30]/10 text-[#FF3B30]'}`}>
-              {importResult.message}
+            <div className={`p-3 rounded-xl text-sm whitespace-pre-wrap flex items-start gap-2 ${importResult.ok ? 'bg-[#34C759]/10 text-[#34C759]' : 'bg-[#FF3B30]/10 text-[#FF3B30]'}`}>
+              <span className="flex-1">{importResult.message}</span>
+              <button type="button" onClick={onClearImportResult}
+                className="flex-shrink-0 text-base leading-none opacity-50 hover:opacity-100 active:opacity-80 ml-1">✕</button>
             </div>
+          )}
+        </div>
+      </div>
+
+      {/* 清除全部資料 */}
+      <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+        <div className="px-4 py-3 border-b border-gray-100">
+          <div className="text-sm font-semibold text-gray-700">危險操作</div>
+          <div className="text-xs text-gray-400 mt-0.5">清除後無法復原，建議先匯出備份</div>
+        </div>
+        <div className="p-4">
+          {clearConfirm ? (
+            <div className="flex items-center gap-3 bg-red-50 rounded-xl px-4 py-3">
+              <span className="text-sm text-red-600 flex-1">確定清除所有待辦、記帳、日誌資料？</span>
+              <button onClick={() => { onClearAllData(); setClearConfirm(false); }}
+                className="text-sm text-white bg-red-500 font-semibold px-4 py-1.5 rounded-lg active:bg-red-600">確定</button>
+              <button onClick={() => setClearConfirm(false)}
+                className="text-sm text-gray-500 px-3 py-1.5 rounded-lg bg-white border border-gray-200">取消</button>
+            </div>
+          ) : (
+            <button onClick={() => setClearConfirm(true)}
+              className="flex items-center w-full px-4 py-3 bg-red-50 rounded-xl hover:bg-red-100 active:bg-red-200 transition-colors text-left">
+              <div className="w-9 h-9 rounded-full bg-red-100 flex items-center justify-center mr-3 flex-shrink-0">
+                <svg className="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+              </div>
+              <div>
+                <div className="text-sm font-medium text-red-500">清除全部資料</div>
+                <div className="text-xs text-gray-400 mt-0.5">清空所有待辦、記帳明細、收入、日誌</div>
+              </div>
+            </button>
           )}
         </div>
       </div>
