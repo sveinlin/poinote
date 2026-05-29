@@ -241,6 +241,12 @@ function SplashScreen({ onNavigate }) {
 
       {/* Spacer */}
       <div style={{ flex: 1 }}/>
+      {/* Version + City skyline */}
+      <div style={{ position: 'relative', width: '100%' }}>
+        <div style={{ textAlign: 'center', paddingBottom: 6, paddingTop: 4 }}>
+          <div style={{ fontSize: 10, color: '#B0A99F' }}>計點事 poinote v{APP_VERSION} · {APP_BUILD_DATE}</div>
+          <div style={{ fontSize: 10, color: '#B0A99F' }}>© 2026 poinote. All rights reserved.</div>
+        </div>
       {/* City skyline */}
       <svg style={{ width: '100%', display: 'block' }} viewBox="0 0 280 140" xmlns="http://www.w3.org/2000/svg">
         <rect x="0" y="0" width="280" height="140" fill="#F2EDE6"/>
@@ -286,9 +292,6 @@ function SplashScreen({ onNavigate }) {
         <rect x="214" y="56" width="3" height="3.5" rx="0.8" fill="#E8940A" opacity="0.58"/>
         <rect x="265" y="66" width="3" height="3.5" rx="0.8" fill="#E8940A" opacity="0.52"/>
       </svg>
-      <div style={{ textAlign: 'center', paddingBottom: 16, paddingTop: 4 }}>
-        <div style={{ fontSize: 11, color: '#C4BDB5' }}>計點事 poinote v{APP_VERSION}</div>
-        <div style={{ fontSize: 11, color: '#D4CEC8' }}>{APP_BUILD_DATE}</div>
       </div>
     </div>
   );
