@@ -55,13 +55,15 @@
 <div id="root"></div>
 
 <script type="text/babel">
-const { useState, useEffect, useCallback, useRef, useMemo } = React;
+const { useState, useEffect, useCallback, useRef, useMemo, useReducer } = React;
 
 // ── Version ────────────────────────────────────────────────────────────────
 const APP_VERSION = '2.1.2';
 const APP_BUILD_DATE = '2026-05-27';
 
 // ── Constants ──────────────────────────────────────────────────────────────
+const INCOME_CAT_ID = '收入';
+
 const DEFAULT_CATEGORIES = [
   { id: '淨靈', label: '淨靈', emoji: '🕯️', color: 'bg-cyan-100 text-cyan-700',    dot: 'bg-cyan-400',    hex: '#00CEC9' },
   { id: '飲食', label: '飲食', emoji: '🍜', color: 'bg-orange-100 text-orange-700', dot: 'bg-orange-400',  hex: '#FF9F43' },
@@ -72,6 +74,7 @@ const DEFAULT_CATEGORIES = [
   { id: '居家', label: '居家', emoji: '🏠', color: 'bg-amber-100 text-amber-700',   dot: 'bg-amber-400',   hex: '#FDCB6E' },
   { id: '教育', label: '教育', emoji: '📚', color: 'bg-indigo-100 text-indigo-700', dot: 'bg-indigo-400',  hex: '#6C5CE7' },
   { id: '其他', label: '其他', emoji: '📦', color: 'bg-gray-100 text-gray-600',     dot: 'bg-gray-400',    hex: '#B2BEC3' },
+  { id: '收入', label: '收入', emoji: '💰', color: 'bg-green-100 text-green-700', dot: 'bg-green-400', hex: '#34C759', isIncome: true },
 ];
 
 
@@ -376,7 +379,13 @@ function App() {
   const [tasks, setTasks] = useState(() => loadState('tasks', DEFAULT_TASKS));
   const [activeList, setActiveList] = useState(() => loadState('activeList', 'list-1'));
   const [tab, setTab] = useState('tasks'); // 'tasks' | 'accounting' | 'journal' | 'settings'
-  const [categories, setCategories] = useState(() => loadState('categories', DEFAULT_CATEGORIES));
+  const [categories, setCategories] = useState(() => {
+    const saved = loadState('categories', DEFAULT_CATEGORIES);
+    const incomeCat = saved.find(c => c.id === INCOME_CAT_ID)
+      || DEFAULT_CATEGORIES.find(c => c.id === INCOME_CAT_ID);
+    const others = saved.filter(c => c.id !== INCOME_CAT_ID);
+    return [...others, incomeCat];
+  });
   const [journalTypes, setJournalTypes] = useState(() => loadState('journalTypes', DEFAULT_JOURNAL_TYPES));
   const [importResult, setImportResult] = useState(null);
   const [completePrompt, setCompletePrompt] = useState(null); // task | null
@@ -2556,16 +2565,17 @@ function AccountingView({ allExpenses, allIncomes, filterDate, onNavigateDate, o
 
   const displayExpenses = isMonth ? monthExpenses : isYear ? yearExpenses : isWeek ? weekExpenses : isCustom ? customExpenses : allExpenses;
   const displayIncomes  = isMonth ? monthIncomes  : isYear ? yearIncomes  : isWeek ? weekIncomes  : isCustom ? customIncomes  : allIncomes;
-  const rawExpTotal     = displayExpenses.reduce((s,r)=>s+(r.amount||0),0);
-  const rawIncTotal     = displayIncomes.reduce((s,i)=>s+(i.amount||0),0);
+  const incomeCatExpTotal = displayExpenses.filter(r=>r.category===INCOME_CAT_ID).reduce((s,r)=>s+(r.amount||0),0);
+  const rawExpTotal     = displayExpenses.filter(r=>r.category!==INCOME_CAT_ID).reduce((s,r)=>s+(r.amount||0),0);
+  const rawIncTotal     = displayIncomes.reduce((s,i)=>s+(i.amount||0),0) + incomeCatExpTotal;
   const displayCatTotals = useMemo(() => {
     const m = {};
-    displayExpenses.forEach(r => { const c=r.category||'其他'; m[c]=(m[c]||0)+(r.amount||0); });
+    displayExpenses.filter(r=>r.category!==INCOME_CAT_ID).forEach(r => { const c=r.category||'其他'; m[c]=(m[c]||0)+(r.amount||0); });
     return Object.entries(m).sort((a,b)=>b[1]-a[1]);
   }, [displayExpenses]);
   const displayCatCounts = useMemo(() => {
     const m = {};
-    displayExpenses.forEach(r => { const c=r.category||'其他'; m[c]=(m[c]||0)+1; });
+    displayExpenses.filter(r=>r.category!==INCOME_CAT_ID).forEach(r => { const c=r.category||'其他'; m[c]=(m[c]||0)+1; });
     return m;
   }, [displayExpenses]);
   const displayPieSlices = useMemo(() =>
@@ -2758,7 +2768,9 @@ function AccountingView({ allExpenses, allIncomes, filterDate, onNavigateDate, o
               )}
             </div>
             {catFilteredGrouped.map(([key, its]) => {
-              const groupTotal = its.filter(r=>!r._income).reduce((s,r)=>s+(r.amount||0),0);
+              const groupExpTotal = its.filter(r=>!r._income && r.category!==INCOME_CAT_ID).reduce((s,r)=>s+(r.amount||0),0);
+              const groupIncomeCatTotal = its.filter(r=>!r._income && r.category===INCOME_CAT_ID).reduce((s,r)=>s+(r.amount||0),0);
+              const groupTotal = groupExpTotal - groupIncomeCatTotal;
               const groupLabel = groupByMonth
                 ? `${parseInt(key.slice(0,4))}年${parseInt(key.slice(5,7))}月`
                 : (() => { const [,mo,d] = key.split('-'); return `${parseInt(mo)}/${parseInt(d)}`; })();
@@ -2778,18 +2790,24 @@ function AccountingView({ allExpenses, allIncomes, filterDate, onNavigateDate, o
                         <div className="text-sm font-semibold text-[#34C759] flex-shrink-0">+${(r.amount||0).toLocaleString()}</div>
                       </div>
                     ) : (() => {
+                      const isIncomeCat = r.category === INCOME_CAT_ID;
                       const cat = getCat(r.category||'其他'); const Icon = CAT_SVG[cat.id];
                       return (
                         <button key={r.id} onClick={() => onEditExpense(r)}
                           className="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 active:bg-gray-100 transition-colors text-left">
-                          <div className="w-9 h-9 rounded-2xl flex items-center justify-center flex-shrink-0" style={{background: cat.hex+'18', color: cat.hex}}>
-                            {Icon?<Icon size={17}/>:<span className="text-base">{cat.emoji}</span>}
+                          <div className="w-9 h-9 rounded-2xl flex items-center justify-center flex-shrink-0"
+                            style={{background: isIncomeCat?'#34C75918':cat.hex+'18', color: isIncomeCat?'#34C759':cat.hex}}>
+                            {isIncomeCat
+                              ? <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+                              : Icon?<Icon size={17}/>:<span className="text-base">{cat.emoji}</span>}
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="text-sm font-medium text-gray-800 truncate">{r.title}</div>
                             {r.merchant && <div className="text-xs text-gray-400 truncate">{r.merchant}</div>}
                           </div>
-                          <div className="text-sm font-semibold text-gray-700 flex-shrink-0">${(r.amount||0).toLocaleString()}</div>
+                          <div className={`text-sm font-semibold flex-shrink-0 ${isIncomeCat?'text-[#34C759]':'text-gray-700'}`}>
+                            {isIncomeCat?'+':''}${(r.amount||0).toLocaleString()}
+                          </div>
                         </button>
                       );
                     })())}
@@ -2922,20 +2940,24 @@ function AccountingView({ allExpenses, allIncomes, filterDate, onNavigateDate, o
       ) : (
         <div className="mx-4 mt-3 bg-white rounded-2xl shadow-sm overflow-hidden divide-y divide-gray-50">
           {dayExpenses.map(r => {
+            const isIncomeCat = r.category === INCOME_CAT_ID;
             const cat = getCat(r.category || '其他');
             const IconComp = CAT_SVG[cat.id];
             return (
               <button key={r.id} onClick={() => onEditExpense(r)}
                 className="w-full flex items-center gap-3 px-4 py-3.5 hover:bg-gray-50 active:bg-gray-100 transition-colors text-left">
-                <div className="w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0" style={{background: cat.hex+'18', color: cat.hex}}>
-                  {IconComp ? <IconComp size={19}/> : <span className="text-lg">{cat.emoji}</span>}
+                <div className="w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0"
+                  style={{background: isIncomeCat?'#34C75918':cat.hex+'18', color: isIncomeCat?'#34C759':cat.hex}}>
+                  {isIncomeCat
+                    ? <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6"/></svg>
+                    : IconComp ? <IconComp size={19}/> : <span className="text-lg">{cat.emoji}</span>}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="text-sm font-medium text-gray-800 truncate">{r.title}</div>
                   {r.merchant && <div className="text-xs text-gray-400 mt-0.5 truncate">{r.merchant}</div>}
                 </div>
-                <div className="text-base font-semibold text-gray-700 flex-shrink-0">
-                  ${(r.amount || 0).toLocaleString()}
+                <div className={`text-base font-semibold flex-shrink-0 ${isIncomeCat?'text-[#34C759]':'text-gray-700'}`}>
+                  {isIncomeCat?'+':''}${(r.amount || 0).toLocaleString()}
                 </div>
               </button>
             );
@@ -3545,6 +3567,28 @@ const CAT_SVG = {
 };
 
 // ── RecordModal (income + expense combined) ────────────────────────────────
+function calcReducer(state, key) {
+  const { expr, prev, op } = state;
+  if (key === '⌫') {
+    if (expr.length > 0) return { ...state, expr: expr.slice(0, -1) };
+    if (op !== null) return { expr: String(prev ?? ''), prev: null, op: null };
+    return state;
+  }
+  if (key === '+' || key === '−') {
+    const cur = parseFloat(expr) || 0;
+    const base = op !== null && prev !== null
+      ? (op === '+' ? prev + cur : Math.max(0, prev - cur))
+      : cur;
+    return { expr: '', prev: base, op: key };
+  }
+  if (key === '.') {
+    if (!expr.includes('.')) return { ...state, expr: expr + '.' };
+    return state;
+  }
+  // digit
+  return { ...state, expr: expr.length >= 10 ? expr : (expr === '0' ? key : expr + key) };
+}
+
 function RecordModal({ mode, record, cats, recentMerchants = [], onSave, onDelete, onClose, onGoToSettings }) {
   const today = localDateStr();
   const [recordType, setRecordType] = useState(record?.type || 'expense');
@@ -3553,9 +3597,9 @@ function RecordModal({ mode, record, cats, recentMerchants = [], onSave, onDelet
   const [category, setCategory] = useState(record?.category || (cats && cats[0]?.id) || '');
   const [merchant, setMerchant] = useState(record?.merchant || '');
   const [saveError, setSaveError] = useState('');
-  const [calcExpr, setCalcExpr] = useState(record?.amount ? String(record.amount) : '');
-  const [prevVal,  setPrevVal]  = useState(null);
-  const [pendingOp, setPendingOp] = useState(null); // '+' | '−' | null
+  const [calcState, dispatchCalc] = useReducer(calcReducer,
+    { expr: record?.amount ? String(record.amount) : '', prev: null, op: null });
+  const { expr: calcExpr, prev: prevVal, op: pendingOp } = calcState;
 
   const isIncome    = recordType === 'income';
   const accentColor = isIncome ? '#34C759' : '#FF3B30';
@@ -3570,21 +3614,7 @@ function RecordModal({ mode, record, cats, recentMerchants = [], onSave, onDelet
 
   const pressKey = (key) => {
     setSaveError('');
-    if (key === '⌫') {
-      if (calcExpr.length > 0) { setCalcExpr(e => e.slice(0, -1)); return; }
-      if (pendingOp !== null) { setCalcExpr(String(prevVal ?? '')); setPrevVal(null); setPendingOp(null); }
-      return;
-    }
-    if (key === '+' || key === '−') {
-      const cur = parseFloat(calcExpr) || 0;
-      const base = (pendingOp !== null && prevVal !== null)
-        ? (pendingOp === '+' ? prevVal + cur : Math.max(0, prevVal - cur))
-        : cur;
-      setPrevVal(base); setPendingOp(key); setCalcExpr('');
-      return;
-    }
-    if (key === '.') { if (!calcExpr.includes('.')) setCalcExpr(e => e + '.'); return; }
-    setCalcExpr(e => e.length >= 10 ? e : (e === '0' ? key : e + key));
+    dispatchCalc(key);
   };
 
   const handleSave = () => {
