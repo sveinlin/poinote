@@ -59,7 +59,7 @@
 const { useState, useEffect, useCallback, useRef, useMemo, useReducer } = React;
 
 // ── Version ────────────────────────────────────────────────────────────────
-const APP_VERSION = '2.2.7';
+const APP_VERSION = '2.2.8';
 const APP_BUILD_DATE = '2026-05-29';
 
 // ── Constants ──────────────────────────────────────────────────────────────
@@ -3734,7 +3734,7 @@ function RecordModal({ mode, record, cats, recentMerchants = [], onSave, onDelet
                   const isSelected = category === c.id;
                   const IconComp = CAT_SVG[c.id];
                   return (
-                    <button key={c.id} onClick={() => setCategory(c.id)} className="flex flex-col items-center gap-1">
+                    <button key={c.id} onClick={() => { if (c.id === INCOME_CAT_ID) { setRecordType('income'); } else { setCategory(c.id); } }} className="flex flex-col items-center gap-1">
                       <div className="w-11 h-11 rounded-2xl flex items-center justify-center transition-all"
                         style={{background: isSelected ? c.hex+'30' : c.hex+'18', color: c.hex, boxShadow: isSelected ? `0 0 0 2px white, 0 0 0 3px ${c.hex}` : 'none'}}>
                         {IconComp ? <IconComp size={20}/> : <span className="text-lg">{c.emoji}</span>}
@@ -3965,8 +3965,14 @@ function SettingsView({ categories, onSaveCategories, journalTypes, onSaveJourna
                     <div className="text-sm font-medium text-gray-800">{cat.label}</div>
                   </div>
                   <div className="flex items-center gap-1">
-                    <button onClick={() => catStartEdit(cat)} className="text-xs text-[#E8940A] hover:text-[#D4820A] font-medium px-3 py-1.5 rounded-lg hover:bg-[#FEF3DC] transition-colors">編輯</button>
-                    <button onClick={() => catDelete(cat.id)} className="text-xs text-gray-400 hover:text-red-500 px-2 py-1.5 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-30" disabled={categories.length <= 1}>刪除</button>
+                    {cat.id === INCOME_CAT_ID ? (
+                      <span className="text-xs text-green-500 font-medium px-3 py-1.5">系統</span>
+                    ) : (
+                      <>
+                        <button onClick={() => catStartEdit(cat)} className="text-xs text-[#E8940A] hover:text-[#D4820A] font-medium px-3 py-1.5 rounded-lg hover:bg-[#FEF3DC] transition-colors">編輯</button>
+                        <button onClick={() => catDelete(cat.id)} className="text-xs text-gray-400 hover:text-red-500 px-2 py-1.5 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-30" disabled={categories.length <= 1}>刪除</button>
+                      </>
+                    )}
                   </div>
                 </div>
               )}
