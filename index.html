@@ -59,7 +59,7 @@
 const { useState, useEffect, useCallback, useRef, useMemo, useReducer } = React;
 
 // ── Version ────────────────────────────────────────────────────────────────
-const APP_VERSION = '2.2.6';
+const APP_VERSION = '2.2.7';
 const APP_BUILD_DATE = '2026-05-29';
 
 // ── Constants ──────────────────────────────────────────────────────────────
@@ -2584,12 +2584,12 @@ function AccountingView({ allExpenses, allIncomes, filterDate, onNavigateDate, o
   const rawIncTotal     = displayIncomes.reduce((s,i)=>s+(i.amount||0),0) + incomeCatExpTotal;
   const displayCatTotals = useMemo(() => {
     const m = {};
-    displayExpenses.filter(r=>r.category!==INCOME_CAT_ID).forEach(r => { const c=r.category||'其他'; m[c]=(m[c]||0)+(r.amount||0); });
+    displayExpenses.forEach(r => { const c=r.category||'其他'; m[c]=(m[c]||0)+(r.amount||0); });
     return Object.entries(m).sort((a,b)=>b[1]-a[1]);
   }, [displayExpenses]);
   const displayCatCounts = useMemo(() => {
     const m = {};
-    displayExpenses.filter(r=>r.category!==INCOME_CAT_ID).forEach(r => { const c=r.category||'其他'; m[c]=(m[c]||0)+1; });
+    displayExpenses.forEach(r => { const c=r.category||'其他'; m[c]=(m[c]||0)+1; });
     return m;
   }, [displayExpenses]);
   const displayPieSlices = useMemo(() =>
@@ -2752,7 +2752,9 @@ function AccountingView({ allExpenses, allIncomes, filterDate, onNavigateDate, o
                     </div>
                     <span className="flex-1 text-sm font-medium text-gray-700">{info.label}</span>
                     <span className="text-sm text-gray-400 w-8 text-center">{count}</span>
-                    <span className="text-sm font-semibold w-20 text-right" style={{color:isActive?info.hex:'#374151'}}>${amt.toLocaleString()}</span>
+                    <span className="text-sm font-semibold w-20 text-right" style={{color: cat===INCOME_CAT_ID ? '#34C759' : isActive ? info.hex : '#374151'}}>
+                      {cat===INCOME_CAT_ID ? '+' : ''}${amt.toLocaleString()}
+                    </span>
                   </div>
                 );
               })}
