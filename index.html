@@ -59,7 +59,7 @@
 const { useState, useEffect, useCallback, useRef, useMemo, useReducer } = React;
 
 // ── Version ────────────────────────────────────────────────────────────────
-const APP_VERSION = '2.2.8';
+const APP_VERSION = '2.2.9';
 const APP_BUILD_DATE = '2026-05-29';
 
 // ── Constants ──────────────────────────────────────────────────────────────
@@ -3610,8 +3610,9 @@ function RecordModal({ mode, record, cats, recentMerchants = [], onSave, onDelet
     { expr: record?.amount ? String(record.amount) : '', prev: null, op: null });
   const { expr: calcExpr, prev: prevVal, op: pendingOp } = calcState;
 
+  const isIncomeCatSelected = category === INCOME_CAT_ID && recordType === 'expense';
   const isIncome    = recordType === 'income';
-  const accentColor = isIncome ? '#34C759' : '#FF3B30';
+  const accentColor = (isIncome || isIncomeCatSelected) ? '#34C759' : '#FF3B30';
   const dateLabel   = date === today ? '今日' : date.slice(5).replace('-', '/');
 
   const computedAmt = () => {
@@ -3642,6 +3643,7 @@ function RecordModal({ mode, record, cats, recentMerchants = [], onSave, onDelet
   };
 
   const displayTotal = computedAmt();
+  const displaySign  = (isIncome || isIncomeCatSelected) ? '+' : '−';
   const displayStr   = '$' + (displayTotal > 0 ? displayTotal.toLocaleString() : (calcExpr || '0'));
 
   const kpBtn = (label, type) => {
@@ -3722,7 +3724,7 @@ function RecordModal({ mode, record, cats, recentMerchants = [], onSave, onDelet
               fontSize: displayStr.length > 10 ? '2.4rem' : displayStr.length > 7 ? '2.8rem' : '3.2rem',
               lineHeight: 1.1
             }}>
-              {displayStr}
+              <span style={{color: accentColor, fontSize:'0.7em', marginRight:2}}>{displaySign}</span>{displayStr}
             </div>
           </div>
 
@@ -3734,7 +3736,7 @@ function RecordModal({ mode, record, cats, recentMerchants = [], onSave, onDelet
                   const isSelected = category === c.id;
                   const IconComp = CAT_SVG[c.id];
                   return (
-                    <button key={c.id} onClick={() => { if (c.id === INCOME_CAT_ID) { setRecordType('income'); } else { setCategory(c.id); } }} className="flex flex-col items-center gap-1">
+                    <button key={c.id} onClick={() => setCategory(c.id)} className="flex flex-col items-center gap-1">
                       <div className="w-11 h-11 rounded-2xl flex items-center justify-center transition-all"
                         style={{background: isSelected ? c.hex+'30' : c.hex+'18', color: c.hex, boxShadow: isSelected ? `0 0 0 2px white, 0 0 0 3px ${c.hex}` : 'none'}}>
                         {IconComp ? <IconComp size={20}/> : <span className="text-lg">{c.emoji}</span>}
