@@ -59,8 +59,8 @@
 const { useState, useEffect, useCallback, useRef, useMemo, useReducer } = React;
 
 // ── Version ────────────────────────────────────────────────────────────────
-const APP_VERSION = '2.2.9';
-const APP_BUILD_DATE = '2026-05-29';
+const APP_VERSION = '2.3.0';
+const APP_BUILD_DATE = '2026-06-09';
 
 // ── Constants ──────────────────────────────────────────────────────────────
 const INCOME_CAT_ID = '收入';
@@ -392,10 +392,11 @@ function App() {
     const incomeCat = saved.find(c => c.id === INCOME_CAT_ID)
       || DEFAULT_CATEGORIES.find(c => c.id === INCOME_CAT_ID);
     const others = saved.filter(c => c.id !== INCOME_CAT_ID);
-    return [...others, incomeCat];
+    return [incomeCat, ...others];
   });
   const [journalTypes, setJournalTypes] = useState(() => loadState('journalTypes', DEFAULT_JOURNAL_TYPES));
   const [importResult, setImportResult] = useState(null);
+  const [pendingImport, setPendingImport] = useState(null); // { newLists, newTasks, dupCount }
   const [completePrompt, setCompletePrompt] = useState(null); // task | null
   const [incomes, setIncomes] = useState(() => loadState('incomes', DEFAULT_INCOMES));
   const [directExpenses, setDirectExpenses] = useState(() => loadState('directExpenses', []));
@@ -548,6 +549,24 @@ function App() {
   const updateTaskDate = useCallback((id, dueDate) => {
     setTasks(prev => prev.map(t => t.id === id ? { ...t, dueDate: dueDate || null } : t));
   }, []);
+
+  const confirmImport = useCallback((mode) => {
+    if (!pendingImport) return;
+    const { newLists, newTasks, dupCount } = pendingImport;
+    if (mode === 'overwrite') {
+      // 覆蓋：先移除同名舊任務，再加入新的
+      setTasks(prev => {
+        const dupTitles = new Set(newTasks.map(t=>t.title.trim()));
+        return [...prev.filter(t=>!dupTitles.has(t.title.trim())), ...newTasks];
+      });
+    } else {
+      // 新增：全部加入
+      setTasks(prev=>[...prev,...newTasks]);
+    }
+    setLists(prev=>[...prev,...newLists]);
+    setImportResult({ ok: true, message: `✅ 匯入成功！${newLists.length} 個清單，共 ${newTasks.length} 筆任務` });
+    setPendingImport(null);
+  }, [pendingImport]);
 
   const deleteTask = useCallback((id) => {
     setTasks(prev => prev.filter(t => t.id !== id));
@@ -825,9 +844,15 @@ function App() {
                 newTasks.push({ id:uid(), listId, title:task.title||'', notes:task.notes||'', dueDate:task.due?task.due.slice(0,10):'', completed:task.status==='completed', pinned:false, isPurchase:false, amount:null, category:null, merchant:null, subtasks:[] });
               }
             }
-            setLists(prev=>[...prev,...newLists]);
-            setTasks(prev=>[...prev,...newTasks]);
-            setImportResult({ ok: true, message: `✅ 匯入成功！${newLists.length} 個清單，共 ${newTasks.length} 筆任務` });
+            const existingTitles = new Set(tasks.map(t=>t.title.trim()));
+            const dupCount = newTasks.filter(t=>existingTitles.has(t.title.trim())).length;
+            if (dupCount > 0) {
+              setPendingImport({ newLists, newTasks, dupCount });
+            } else {
+              setLists(prev=>[...prev,...newLists]);
+              setTasks(prev=>[...prev,...newTasks]);
+              setImportResult({ ok: true, message: `✅ 匯入成功！${newLists.length} 個清單，共 ${newTasks.length} 筆任務` });
+            }
           } else if (json.exportDate !== undefined && (json.lists||json.tasks||json.incomes||json.directExpenses)) {
             // poinote 備份格式（以 ID 去重，合併進現有資料）
             const merge = (setter, arr) => {
@@ -1206,7 +1231,7 @@ function App() {
       {recordModal && (
         <RecordModal
           mode={recordModal.mode} record={recordModal.record}
-          cats={categories} recentMerchants={recentMerchants}
+          cats={[...(categories.filter(c=>c.id===INCOME_CAT_ID)), ...(categories.filter(c=>c.id!==INCOME_CAT_ID))]} recentMerchants={recentMerchants}
           onSave={(data) => {
             const isAdd = recordModal.mode === 'add';
             if (data.type === 'income') {
@@ -1249,6 +1274,26 @@ function App() {
           }}
           onClose={() => setPostRecordPrompt(null)}
         />
+      )}
+      {/* Import conflict sheet */}
+      {pendingImport && (
+        <div className="fixed inset-0 z-[200] flex items-end bg-black/40" onClick={() => setPendingImport(null)}>
+          <div className="w-full max-w-md mx-auto bg-white rounded-t-3xl shadow-2xl p-6" onClick={e => e.stopPropagation()}>
+            <div className="text-base font-semibold text-gray-800 mb-2">發現重複任務</div>
+            <div className="text-sm text-gray-500 mb-6">匯入資料中有 <span className="font-semibold text-gray-700">{pendingImport.dupCount}</span> 筆與現有任務同名，要如何處理？</div>
+            <div className="flex gap-3">
+              <button onClick={() => confirmImport('overwrite')}
+                className="flex-1 py-3.5 rounded-2xl bg-[#E8940A] text-white text-sm font-semibold">
+                覆蓋同名任務
+              </button>
+              <button onClick={() => confirmImport('add')}
+                className="flex-1 py-3.5 rounded-2xl border border-gray-200 text-sm text-gray-700">
+                全部新增
+              </button>
+            </div>
+            <button onClick={() => setPendingImport(null)} className="w-full mt-3 py-2 text-sm text-gray-400">取消匯入</button>
+          </div>
+        </div>
       )}
       {/* Journal modal */}
       {journalModal && (
@@ -2585,7 +2630,10 @@ function AccountingView({ allExpenses, allIncomes, filterDate, onNavigateDate, o
   const displayCatTotals = useMemo(() => {
     const m = {};
     displayExpenses.forEach(r => { const c=r.category||'其他'; m[c]=(m[c]||0)+(r.amount||0); });
-    return Object.entries(m).sort((a,b)=>b[1]-a[1]);
+    const entries = Object.entries(m).sort((a,b)=>b[1]-a[1]);
+    const inc = entries.filter(([c])=>c===INCOME_CAT_ID);
+    const rest = entries.filter(([c])=>c!==INCOME_CAT_ID);
+    return [...inc, ...rest];
   }, [displayExpenses]);
   const displayCatCounts = useMemo(() => {
     const m = {};
@@ -3724,7 +3772,7 @@ function RecordModal({ mode, record, cats, recentMerchants = [], onSave, onDelet
               fontSize: displayStr.length > 10 ? '2.4rem' : displayStr.length > 7 ? '2.8rem' : '3.2rem',
               lineHeight: 1.1
             }}>
-              <span style={{color: accentColor, fontSize:'0.7em', marginRight:2}}>{displaySign}</span>{displayStr}
+              {displayStr}
             </div>
           </div>
 
