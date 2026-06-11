@@ -64,7 +64,7 @@
 const { useState, useEffect, useCallback, useRef, useMemo, useReducer } = React;
 
 // ── Version ────────────────────────────────────────────────────────────────
-const APP_VERSION = '2.5.0';
+const APP_VERSION = '2.5.1';
 const APP_BUILD_DATE = '2026-06-10';
 
 // ── Constants ──────────────────────────────────────────────────────────────
@@ -2994,7 +2994,7 @@ function AccountingView({ allExpenses, allIncomes, filterDate, onNavigateDate, o
         touchStartX.current = null;
         if (Math.abs(dx) > 50) {
           e.stopPropagation();
-          onNavigateDate(dx < 0 ? -1 : 1);
+          onNavigateDate(dx > 0 ? -1 : 1);
         }
       }}>
 
