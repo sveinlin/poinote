@@ -64,8 +64,8 @@
 const { useState, useEffect, useCallback, useRef, useMemo, useReducer } = React;
 
 // ── Version ────────────────────────────────────────────────────────────────
-const APP_VERSION = '2.5.2';
-const APP_BUILD_DATE = '2026-06-10';
+const APP_VERSION = '2.5.3';
+const APP_BUILD_DATE = '2026-06-12';
 
 // ── Constants ──────────────────────────────────────────────────────────────
 const INCOME_CAT_ID = '收入';
@@ -991,7 +991,7 @@ function App() {
 
   return (
     <CategoriesCtx.Provider value={ctxValue}>
-    <div className="flex flex-col max-w-md mx-auto shadow-xl relative overflow-hidden"
+    <div className="flex flex-col max-w-md mx-auto shadow-xl relative overflow-x-hidden"
       style={{height:'100%',background:tab==='tasks'?'#EDF8F2':tab==='accounting'?'#FFF8F0':tab==='journal'?'#F4F8FF':'#F2F1EE',transition:'background 0.4s ease'}}>
       {/* Header */}
       <header className="border-b border-[#E8C87A]/30 px-4 pb-3 sticky top-0 z-30 relative overflow-hidden"
@@ -1036,7 +1036,7 @@ function App() {
       </header>
 
       {/* Main content */}
-      <main className="flex-1 overflow-y-auto relative" style={{zIndex:10,paddingBottom:'calc(6rem + env(safe-area-inset-bottom, 0px))'}}>
+      <main className="flex-1 overflow-y-auto relative" style={{zIndex:10, WebkitOverflowScrolling:'touch'}}>
         {tab === 'tasks' && (
           <div className="sticky top-0 z-20 px-4 pt-2 pb-2 flex gap-2 overflow-x-auto hide-scrollbar"
             style={{background:'rgba(240,250,244,0.92)', backdropFilter:'blur(8px)', borderBottom:'1px solid rgba(232,200,122,0.18)'}}>
@@ -1128,7 +1128,7 @@ function App() {
       )}
 
       {/* Bottom navigation */}
-      <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md bg-white border-t border-[#E8C87A]/30 flex z-40"
+      <nav className="w-full bg-white border-t border-[#E8C87A]/30 flex z-40 flex-shrink-0"
         style={{paddingBottom:'env(safe-area-inset-bottom, 0px)'}}>
         <button onClick={() => setTab('tasks')}
           className={`flex-1 flex flex-col items-center py-3 gap-0.5 transition-colors ${tab==='tasks'?'text-gray-700':'text-gray-400'}`}>
@@ -1657,7 +1657,7 @@ function TasksView({ pinnedTasks, activeTasks, completedTasks, onToggleComplete,
           )}
         </section>
       )}
-
+      <div style={{height:'calc(6rem + env(safe-area-inset-bottom, 0px))', flexShrink:0}}/>
     </div>
   );
 }
@@ -1877,7 +1877,7 @@ function TaskModal({ mode, task, lists, activeListId, onSave, onDelete, onClose 
       )}
 
       {/* Scrollable content */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto pb-4 min-h-0">
         {/* List label */}
         <div className="px-5 pt-5 pb-0">
           <span className="text-gray-500 text-sm font-medium">{listName}</span>
@@ -2413,6 +2413,7 @@ function AccountingView({ allExpenses, allIncomes, filterDate, onNavigateDate, o
   const isToday = filterDate === todayStr;
   const touchStartX = useRef(null);
   const [activeCat, setActiveCat] = useState(null);
+  const [catDetailSheet, setCatDetailSheet] = useState(null); // { cat, label, hex, records }
   const [fixedExpanded, setFixedExpanded] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showAllRecords, setShowAllRecords] = useState(false);
@@ -2717,7 +2718,7 @@ function AccountingView({ allExpenses, allIncomes, filterDate, onNavigateDate, o
       : displayGrouped;
 
     return (
-      <div className="fade-in pb-6">
+      <div className="fade-in">
         {/* Close button */}
         <div className="flex justify-end px-4 pt-3 pb-1">
           <button onClick={onCloseStats}
@@ -2779,7 +2780,7 @@ function AccountingView({ allExpenses, allIncomes, filterDate, onNavigateDate, o
             <div className="px-3 py-4 flex flex-col items-center">
               <div className="text-xs text-gray-400 mb-1.5">損益</div>
               <div className="text-base leading-tight" style={{fontWeight:400,fontVariantNumeric:'tabular-nums',color:displayBalance>=0?'#4A9E92':'#CC3C55'}}>
-                {Math.abs(displayBalance).toLocaleString()}
+                {displayBalance < 0 ? '−' : '+'}{Math.abs(displayBalance).toLocaleString()}
               </div>
               <div className="text-xs text-gray-300 mt-1">{periodLabel}</div>
             </div>
@@ -2840,19 +2841,27 @@ function AccountingView({ allExpenses, allIncomes, filterDate, onNavigateDate, o
               <div className="text-xs font-semibold text-gray-400 mb-2 mt-1">分類資訊</div>
               {displayCatTotals.map(([cat,amt]) => {
                 const info = getCat(cat); const IconComp = CAT_SVG[cat];
-                const count = displayCatCounts[cat]||0; const isActive = activeCat===cat;
+                const count = displayCatCounts[cat]||0;
+                const handleCatClick = () => {
+                  const records = cat === INCOME_CAT_ID
+                    ? displayIncomes.map(r => ({ ...r, _isIncome: true, _date: r.date }))
+                    : displayExpenses.filter(r => (r.category||'其他') === cat).map(r => ({ ...r, _date: r.dueDate }));
+                  const sorted = [...records].sort((a,b) => (b._date||'').localeCompare(a._date||''));
+                  setCatDetailSheet({ cat, info, amt, sorted });
+                };
                 return (
-                  <div key={cat} onClick={() => setActiveCat(isActive?null:cat)}
-                    className="flex items-center gap-3 py-2.5 border-b border-gray-50 last:border-0 cursor-pointer rounded-lg px-1 transition-all">
-                    <div className="w-9 h-9 rounded-2xl flex items-center justify-center flex-shrink-0 transition-all"
-                      style={{background: isActive ? info.hex+'30' : info.hex+'18', color: info.hex, boxShadow: isActive ? `0 0 0 2px white, 0 0 0 3px ${info.hex}` : 'none'}}>
+                  <div key={cat} onClick={handleCatClick}
+                    className="flex items-center gap-3 py-2.5 border-b border-gray-50 last:border-0 cursor-pointer rounded-lg px-1 active:bg-gray-50 transition-all">
+                    <div className="w-9 h-9 rounded-2xl flex items-center justify-center flex-shrink-0"
+                      style={{background: info.hex+'18', color: info.hex}}>
                       {IconComp?<IconComp size={17}/>:<span className="text-base">{info.emoji}</span>}
                     </div>
                     <span className="flex-1 text-sm font-medium text-gray-700">{info.label}</span>
                     <span className="text-sm text-gray-400 w-8 text-center">{count}</span>
-                    <span className="text-sm font-semibold w-20 text-right" style={{color: cat===INCOME_CAT_ID ? '#34C759' : isActive ? info.hex : '#374151'}}>
-                      {cat===INCOME_CAT_ID ? '+' : ''}${amt.toLocaleString()}
+                    <span className="text-sm font-semibold w-20 text-right" style={{color: cat===INCOME_CAT_ID ? '#34C759' : '#374151'}}>
+                      ${amt.toLocaleString()}
                     </span>
+                    <svg className="w-4 h-4 text-gray-300 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7"/></svg>
                   </div>
                 );
               })}
@@ -2862,8 +2871,8 @@ function AccountingView({ allExpenses, allIncomes, filterDate, onNavigateDate, o
 
         {/* Records grouped by period */}
         {catFilteredGrouped.length > 0 && (
-          <div className="mx-4 mt-3 bg-white rounded-2xl shadow-sm overflow-hidden">
-            <div className="px-4 py-3 flex items-center justify-between border-b border-gray-50">
+          <div className="mx-4 mt-3 bg-white rounded-2xl shadow-sm">
+            <div className="px-4 py-3 flex items-center justify-between border-b border-gray-50 rounded-t-2xl overflow-hidden">
               {activeCat ? (
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-semibold text-gray-500">篩選：{getCat(activeCat).label}</span>
@@ -2940,6 +2949,80 @@ function AccountingView({ allExpenses, allIncomes, filterDate, onNavigateDate, o
             )}
           </div>
         )}
+
+        {/* Bottom spacer — explicit element instead of padding, more reliable in WKWebView */}
+        <div style={{height:'calc(6rem + env(safe-area-inset-bottom, 0px))', flexShrink:0}}/>
+
+        {/* Category detail sheet */}
+        {catDetailSheet && ReactDOM.createPortal(
+          <div className="fixed inset-0 z-[200] flex justify-center items-end" style={{background:'rgba(0,0,0,0.35)'}}
+            onClick={e => { if(e.target===e.currentTarget) setCatDetailSheet(null); }}>
+            <div className="w-full max-w-md bg-white rounded-t-3xl flex flex-col" style={{maxHeight:'80vh'}}>
+              {/* Sheet header */}
+              <div className="flex items-center gap-3 px-4 pt-5 pb-3 border-b border-gray-100">
+                <div className="w-10 h-10 rounded-2xl flex items-center justify-center flex-shrink-0"
+                  style={{background: catDetailSheet.info.hex+'18', color: catDetailSheet.info.hex}}>
+                  {(() => { const Icon = CAT_SVG[catDetailSheet.cat]; return Icon ? <Icon size={19}/> : <span className="text-lg">{catDetailSheet.info.emoji}</span>; })()}
+                </div>
+                <div className="flex-1">
+                  <div className="text-base font-semibold text-gray-800">{catDetailSheet.info.label}</div>
+                  <div className="text-sm font-medium" style={{color: catDetailSheet.cat===INCOME_CAT_ID?'#34C759':'#FF3B30'}}>
+                    ${catDetailSheet.amt.toLocaleString()}
+                  </div>
+                </div>
+                <button onClick={() => setCatDetailSheet(null)}
+                  className="w-8 h-8 flex items-center justify-center rounded-full active:bg-gray-100"
+                  style={{background:'rgba(0,0,0,0.06)'}}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#6B7280" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                </button>
+              </div>
+              {/* Records list */}
+              <div className="overflow-y-auto flex-1 min-h-0">
+                {catDetailSheet.sorted.length === 0 ? (
+                  <div className="py-12 flex flex-col items-center text-gray-400">
+                    <div className="text-3xl mb-2">📭</div>
+                    <div className="text-sm">沒有記錄</div>
+                  </div>
+                ) : (() => {
+                  // Group by date
+                  const groups = {};
+                  catDetailSheet.sorted.forEach(r => {
+                    const d = r._date || '';
+                    if (!groups[d]) groups[d] = [];
+                    groups[d].push(r);
+                  });
+                  return Object.entries(groups).sort((a,b)=>b[0].localeCompare(a[0])).map(([date, recs]) => {
+                    const [y,m,d] = date.split('-');
+                    const dateStr = date === todayStr ? '今日' : `${y}年${parseInt(m)}月${parseInt(d)}日`;
+                    const dayTotal = recs.reduce((s,r)=>s+(r.amount||0),0);
+                    return (
+                      <div key={date}>
+                        <div className="flex items-center justify-between px-4 py-2 bg-gray-50/70">
+                          <span className="text-xs font-semibold text-gray-500">{dateStr}</span>
+                          <span className="text-xs font-medium text-gray-400">${dayTotal.toLocaleString()}</span>
+                        </div>
+                        {recs.map(r => (
+                          <div key={r.id} className="flex items-center gap-3 px-4 py-3 border-b border-gray-50 last:border-0">
+                            <div className="flex-1 min-w-0">
+                              <div className="text-sm font-medium text-gray-800 truncate">{r.title}</div>
+                              {r.merchant && <div className="text-xs text-gray-400 truncate">{r.merchant}</div>}
+                              {r.note && !r.merchant && <div className="text-xs text-gray-400 truncate">{r.note}</div>}
+                            </div>
+                            <div className="text-sm font-semibold text-gray-700 flex-shrink-0">${(r.amount||0).toLocaleString()}</div>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  });
+                })()}
+                {/* End indicator */}
+                <div className="flex flex-col items-center py-5" style={{paddingBottom:'max(1.5rem, env(safe-area-inset-bottom, 1.5rem))'}}>
+                  <div className="w-10 h-1 rounded-full bg-gray-200"/>
+                </div>
+              </div>
+            </div>
+          </div>
+        , document.body)}
       </div>
     );
   }
@@ -2979,7 +3062,7 @@ function AccountingView({ allExpenses, allIncomes, filterDate, onNavigateDate, o
   const hasToday = dayExpenses.length > 0 || dayIncomes.length > 0;
 
   return (
-    <div className="fade-in pb-36"
+    <div className="fade-in"
       onTouchStart={e => { touchStartX.current = e.touches[0].clientX; }}
       onTouchEnd={e => {
         if (touchStartX.current === null) return;
@@ -3058,6 +3141,7 @@ function AccountingView({ allExpenses, allIncomes, filterDate, onNavigateDate, o
           {dayIncomes.map(i => <RecordRow key={i.id} r={i} isExpense={false}/>)}
         </div>
       )}
+      <div style={{height:'calc(6rem + env(safe-area-inset-bottom, 0px))', flexShrink:0}}/>
     </div>
   );
 }
@@ -3108,7 +3192,7 @@ function JournalView({ journals, journalTypes, onAdd, onEdit, onToggleStar }) {
   }, [journals, filter, journalTypes]);
 
   return (
-    <div className="fade-in pb-6">
+    <div className="fade-in">
       {/* Filter row */}
       <div className="px-4 pt-3 pb-2 flex items-start gap-2">
         <div className="flex flex-wrap gap-2 flex-1">
@@ -3149,6 +3233,7 @@ function JournalView({ journals, journalTypes, onAdd, onEdit, onToggleStar }) {
           ))}
         </div>
       )}
+      <div style={{height:'calc(6rem + env(safe-area-inset-bottom, 0px))', flexShrink:0}}/>
     </div>
   );
 }
@@ -3679,7 +3764,7 @@ function RecordModal({ mode, record, cats, recentMerchants = [], onSave, onDelet
         style={{maxHeight:'92vh', background:'#FAF6F1'}}>
 
         {/* ── Light section ── */}
-        <div className="overflow-y-auto" style={{flex:'1 1 auto'}}>
+        <div className="overflow-y-auto min-h-0" style={{flex:'1 1 auto'}}>
 
           {/* Header: close | date | delete */}
           <div className="flex items-center justify-between px-4 pt-4 pb-2">
@@ -3928,7 +4013,7 @@ function SettingsView({ categories, onSaveCategories, journalTypes, onSaveJourna
 
 
   return (
-    <div className="fade-in px-4 pt-4 pb-8 space-y-4">
+    <div className="fade-in px-4 pt-4 space-y-4">
 
       {/* 記帳分類 */}
       <div id="categories-section" className="bg-white rounded-2xl shadow-sm overflow-hidden">
@@ -4157,6 +4242,7 @@ function SettingsView({ categories, onSaveCategories, journalTypes, onSaveJourna
         <div className="text-xs text-gray-300 mt-0.5">© 2026 poinote. All rights reserved.</div>
       </div>
 
+      <div style={{height:'calc(6rem + env(safe-area-inset-bottom, 0px))', flexShrink:0}}/>
     </div>
   );
 }
