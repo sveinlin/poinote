@@ -1,4 +1,4 @@
-const CACHE = 'poinote-v2.5.4';
+const CACHE = 'poinote-v2.5.5';
 const ASSETS = [
   './index.html',
   './manifest.json',
